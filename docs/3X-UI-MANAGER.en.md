@@ -2,7 +2,7 @@
 
 🇬🇧 English · 🇷🇺 [Русский](3X-UI-MANAGER.ru.md)
 
-**App version: 0.11.1.** This manual is based on and current for that version.
+**App version: 0.12.2.** This manual is based on and current for that version.
 
 **Get the app:** [F-Droid](https://f-droid.org/packages/net.yukh.xui) ·
 [GitHub Releases](https://github.com/yukh975/3X-UI-Manager/releases) ·
@@ -65,7 +65,8 @@
   - [10.5. Route test](#105-route-test)
   - [10.6. DNS](#106-dns)
   - [10.7. General settings and logs](#107-general-settings-and-logs)
-  - [10.8. The full Xray config](#108-the-full-xray-config)
+  - [10.8. Geodata auto-update](#108-geodata-auto-update)
+  - [10.9. The full Xray config](#109-the-full-xray-config)
 - [11. Panel administration](#11-panel-administration)
 - [12. Backups](#12-backups)
 - [13. Alerts](#13-alerts)
@@ -266,6 +267,11 @@ poll doesn't flip the button back and forth.
 - **Connections** — TCP and UDP counts;
 - **Load 1·5·15m** — system load average.
 
+**Swap and server addresses.** If the server has swap, a swap tile appears next to
+CPU, memory and disk — tapping it opens its history, like the others; with no swap
+there is no tile. The server's public addresses are shown labelled **IPv4** and
+**IPv6** rather than as a single address.
+
 ### 6.3. History charts
 
 The metric blocks are tappable and open a chart over a period. The interval is
@@ -400,6 +406,13 @@ simply registers again on its next subscription fetch.
 Identifiers (UUID, password, subId) are minted by the app on creation in the same
 format the web panel uses.
 
+**Expiry down to the minute.** After the date, the app asks for a time of day; a
+client without an expiry gets 23:59. The time is entered in the phone's time zone —
+as in the panel's own web form — and that zone is labelled under the field. If the
+panel is set to a zone of its own, the same moment on the panel's clock is shown
+next to it, so a panel abroad and an admin at home don't have to guess whose
+midnight it is.
+
 ### 8.3. Handing a configuration to a client
 
 Tapping a client opens the share sheet:
@@ -427,6 +440,10 @@ A long press turns on selection mode. With the selected clients you can:
 
 Shows which addresses the client connected from and when, and with multi-panel,
 through which node. The log can be cleared.
+
+An empty log is not a fault: the panel keeps an address for only **30 minutes**
+after the client's last connection, so a client that hasn't connected lately has an
+empty log — and the app says so.
 
 ### 8.6. Export, import and cleanup
 
@@ -577,7 +594,29 @@ strategy, and static hosts entries.
 The **General / Logs** section: log level, log access parameters and the other
 general core settings.
 
-### 10.8. The full Xray config
+### 10.8. Geodata auto-update
+
+The geo-database button on the dashboard (see [6.6](#66-panel-version-and-geo-databases))
+fetches the files **once, by hand**. This section configures the same thing **on
+a schedule**: Xray downloads the listed files itself and reloads them without
+restarting. Needs panel 3.7.0.
+
+- **Schedule** — a five-field cron expression, e.g. `0 4 * * *` (daily at 4 am).
+- **Download through outbound** — optional; the list comes from the outbound tags
+  in the config. Empty means the normal route.
+- **Files** — the file name and where to fetch it from. The URL must be **HTTPS**
+  and the name a plain one like `geosite_custom.dat`, with no path.
+
+The app checks those three constraints before saving and will not let an invalid
+set through. Removing the last file drops the schedule block from the config
+entirely — a schedule with no files means nothing.
+
+One constraint comes from Xray itself: **the file has to exist in the panel's
+`bin` folder once**, or there is nothing to update — so it gets there first via
+the dashboard button or by hand, and the schedule keeps it current from then on.
+Routing rules reference such files as `ext:geosite_custom.dat:category`.
+
+### 10.9. The full Xray config
 
 If a field you need isn't in any form, the configuration can be edited as text —
 the whole thing, the same JSON as on the panel's Xray Configuration page. The
@@ -747,7 +786,7 @@ some capabilities arrived in later panel releases:
 | Bulk client actions, VLESS encryption key generation | 3.4.1 |
 | Live per-client speed, outbound test, Target Strategy, route test, subscription announcement, MTProto and WireGuard client fields | 3.5.0 |
 | SMTP sender settings, outbound-down alert threshold, "as the subscriber sees it" status, write-only node tokens, day-of-month traffic reset | 3.6.0 |
-| Renewal on a day of the month, max renewals, the client's own traffic-reset cycle, the device limit and device list (HWID), AmneziaWG forwarded ports, API token scope and expiry, the IP limit allowlist, Disable XTLS flow, reloading the master mTLS credential | 3.7.0 |
+| Renewal on a day of the month, max renewals, the client's own traffic-reset cycle, the device limit and device list (HWID), AmneziaWG forwarded ports, API token scope and expiry, the IP limit allowlist, Disable XTLS flow, reloading the master mTLS credential, geodata auto-update | 3.7.0 |
 
 **The recommendation is simple: run the latest panel.** Then every section of the
 app is available, and you get the panel's own fixes along the way.
