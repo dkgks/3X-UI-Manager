@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -44,6 +45,7 @@ import net.yukh.xui.shared.dto.Client
 import net.yukh.xui.shared.dto.InboundSlim
 import net.yukh.xui.shared.dto.Node
 import net.yukh.xui.shared.dto.TrafficSummary
+import net.yukh.xui.shared.dto.isValidBulkAdTag
 
 @Composable
 private fun ListScaffold(
@@ -134,9 +136,15 @@ fun ClientsListScreen(
     bulkBusy: Boolean = false,
     onBulkEnable: (List<String>) -> Unit = {},
     onBulkDisable: (List<String>) -> Unit = {},
-    onBulkAdjust: (List<String>, Int, Long, String) -> Unit = { _, _, _, _ -> },
+    onBulkAdjust: (List<String>, Int, Long, String, Int?, String) -> Unit = { _, _, _, _, _, _ -> },
     onBulkDelete: (List<String>) -> Unit = {},
     speeds: Map<String, Pair<Long, Long>> = emptyMap(),
+    /** Panel v3.8.0+: bulk adjust also sets the device limit and the MTProto ad tag. */
+    panel380: Boolean = false,
+    /** Outcome of the last bulk adjust, shown under the header until dismissed. */
+    bulkMessage: String? = null,
+    bulkError: String? = null,
+    onDismissBulkMessage: () -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf(ClientFilter.ALL) }
@@ -204,6 +212,16 @@ fun ClientsListScreen(
             }
         }
 
+        // The last bulk adjust's outcome; a tap or the next selection dismisses it.
+        (bulkError ?: bulkMessage)?.let { text ->
+            Text(
+                text,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp).clickable { onDismissBulkMessage() },
+                color = if (bulkError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
@@ -247,7 +265,7 @@ fun ClientsListScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth().combinedClickable(
                             onClick = { if (selectionMode) toggleSel() else onEdit(c) },
-                            onLongClick = { if (!selectionMode) { selectionMode = true }; toggleSel() },
+                            onLongClick = { if (!selectionMode) { selectionMode = true; onDismissBulkMessage() }; toggleSel() },
                         ),
                         colors = if (isSel) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer) else CardDefaults.cardColors(),
                     ) {
@@ -285,7 +303,10 @@ fun ClientsListScreen(
     if (showAdjust) {
         BulkAdjustDialog(
             count = selected.size,
-            onApply = { days, bytes, flow -> onBulkAdjust(selected.toList(), days, bytes, flow); showAdjust = false; exitSelection() },
+            panel380 = panel380,
+            onApply = { days, bytes, flow, limitHwid, adTag ->
+                onBulkAdjust(selected.toList(), days, bytes, flow, limitHwid, adTag); showAdjust = false; exitSelection()
+            },
             onDismiss = { showAdjust = false },
         )
     }
@@ -330,10 +351,22 @@ private fun ClientSelectionBar(
 }
 
 @Composable
-private fun BulkAdjustDialog(count: Int, onApply: (Int, Long, String) -> Unit, onDismiss: () -> Unit) {
+private fun BulkAdjustDialog(
+    count: Int,
+    panel380: Boolean,
+    onApply: (Int, Long, String, Int?, String) -> Unit,
+    onDismiss: () -> Unit,
+) {
     var days by remember { mutableStateOf("") }
     var gb by remember { mutableStateOf("") }
     var flow by remember { mutableStateOf("") }
+    // Panel v3.8.0 fields; empty leaves each client's value as it is.
+    var hwid by remember { mutableStateOf("") }
+    var adTag by remember { mutableStateOf("") }
+    val adTagValid = isValidBulkAdTag(adTag.trim())
+    // The panel refuses an adjust that changes nothing.
+    val nothingSet = (days.toIntOrNull() ?: 0) == 0 && (gb.toDoubleOrNull() ?: 0.0) == 0.0 &&
+        flow.isEmpty() && hwid.isEmpty() && adTag.isBlank()
     // API flow value → display label (matches the panel's bulk Adjust flow set).
     val flowLabels = linkedMapOf(
         "" to tr("No change"),
@@ -345,7 +378,8 @@ private fun BulkAdjustDialog(count: Int, onApply: (Int, Long, String) -> Unit, o
         onDismissRequest = onDismiss,
         title = { Text("${tr("Adjust")} ($count)") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Scrolls: with the v3.8.0 fields the form can outgrow a small screen.
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = days,
                     onValueChange = { days = it.filter { c -> c.isDigit() || c == '-' } },
@@ -366,14 +400,37 @@ private fun BulkAdjustDialog(count: Int, onApply: (Int, Long, String) -> Unit, o
                         FilterChip(selected = flow == key, onClick = { flow = key }, label = { Text(label) })
                     }
                 }
+                if (panel380) {
+                    OutlinedTextField(
+                        value = hwid,
+                        onValueChange = { hwid = it.filter(Char::isDigit).take(4) },
+                        label = { Text(tr("Device limit (0 = unlimited)")) },
+                        supportingText = { Text(tr("Empty keeps each client's limit. Lowering it removes the extra registered devices.")) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = adTag,
+                        onValueChange = { adTag = it.filter { c -> c.isLetterOrDigit() }.take(32) },
+                        label = { Text(tr("MTProto ad tag")) },
+                        supportingText = { Text(tr("32 hex characters to set, none to clear, empty to keep. MTProto inbounds only.")) },
+                        isError = !adTagValid,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val addDays = days.toIntOrNull() ?: 0
-                val addBytes = ((gb.toDoubleOrNull() ?: 0.0) * 1024.0 * 1024.0 * 1024.0).toLong()
-                onApply(addDays, addBytes, flow)
-            }) { Text(tr("Apply")) }
+            TextButton(
+                onClick = {
+                    val addDays = days.toIntOrNull() ?: 0
+                    val addBytes = ((gb.toDoubleOrNull() ?: 0.0) * 1024.0 * 1024.0 * 1024.0).toLong()
+                    onApply(addDays, addBytes, flow, hwid.toIntOrNull(), adTag.trim())
+                },
+                enabled = !nothingSet && adTagValid,
+            ) { Text(tr("Apply")) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } },
     )

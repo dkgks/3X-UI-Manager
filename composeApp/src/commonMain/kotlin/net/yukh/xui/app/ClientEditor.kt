@@ -26,10 +26,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -50,12 +52,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.alexzhirkevich.qrose.rememberQrCodePainter
+import io.github.alexzhirkevich.qrose.QrCodePainter
+import io.github.alexzhirkevich.qrose.options.QrOptions
 import net.yukh.xui.shared.dto.Client
 import net.yukh.xui.shared.dto.ClientIpInfo
 import net.yukh.xui.shared.dto.ClientModel
+import net.yukh.xui.shared.dto.HAPP_SOURCE_TOO_LONG
 import net.yukh.xui.shared.dto.InboundSlim
+import net.yukh.xui.shared.dto.QR_MAX_BYTES
 import net.yukh.xui.shared.dto.SubInfo
 import net.yukh.xui.shared.secureRandomIndex
 
@@ -88,6 +94,13 @@ fun ClientEditorScreen(
     /** The panel's own time zone, when it names a real one — shown next to the
      *  expiry so the two clocks are never confused. */
     panelTimeZone: String = "",
+    // Encrypted Happ link under the subscription (panel v3.8.0); a null switch means
+    // the panel's setting hasn't been read, so the block isn't offered.
+    happLinkEnabled: Boolean? = null,
+    happLink: String? = null,
+    happLinkLoading: Boolean = false,
+    happLinkError: String? = null,
+    onGenerateHappLink: () -> Unit = {},
     onSave: (ClientModel, List<Int>) -> Unit,
     onDelete: () -> Unit,
     onCancel: () -> Unit,
@@ -118,12 +131,17 @@ fun ClientEditorScreen(
     var secret by remember { mutableStateOf(source.secret) }
     var adTag by remember { mutableStateOf(source.adTag) }
     var allowedIps by remember { mutableStateOf(source.allowedIPs) }
+    // PersistentKeepalive seconds for WireGuard/AmneziaWG peers. A new client gets 25,
+    // like the panel's own form; 0 turns keepalives off.
+    var keepAlive by remember { mutableStateOf(if (isNew) "25" else source.keepAlive.toString()) }
 
     // Show protocol-specific fields when a selected inbound is MTProto / WireGuard.
     val selectedProtocols = availableInbounds.filter { it.id in selectedInbounds }.map { it.protocol.lowercase() }
     val isMtproto = "mtproto" in selectedProtocols
     val isWireguard = "wireguard" in selectedProtocols
     val isAmneziawg = "amneziawg" in selectedProtocols
+    // Panel v3.8.0 serves TUIC outside Xray, so per-client traffic and IP limits don't apply.
+    val isTuic = "tuic" in selectedProtocols
 
     val canSave = !saving && email.isNotBlank() && (!isNew || selectedInbounds.isNotEmpty())
     fun build(): ClientModel {
@@ -158,6 +176,13 @@ fun ClientEditorScreen(
                 base.allowedIPs
             },
             forwardedPorts = if (isAmneziawg) forwardedPorts.trim() else base.forwardedPorts,
+            // A tunnel client sends the field, 0 included (panel v3.8.0 reads it as "off");
+            // any other client keeps the rebuilt value: null, or a stored keepalive > 0.
+            keepAlive = if (isWireguard || isAmneziawg) {
+                (keepAlive.toIntOrNull() ?: 0).coerceIn(0, 65535)
+            } else {
+                base.keepAlive
+            },
         )
     }
 
@@ -180,6 +205,13 @@ fun ClientEditorScreen(
             CField(email, { email = it }, tr("Email / name"))
             CField(totalGb, { totalGb = it }, tr("Traffic limit (GB, 0 = unlimited)"), KeyboardType.Decimal)
             CField(limitIp, { limitIp = it.filter(Char::isDigit) }, tr("IP limit (0 = unlimited)"), KeyboardType.Number)
+            if (isTuic) {
+                Text(
+                    tr("On a TUIC inbound the panel can't enforce a per-client traffic limit or IP limit — limit traffic on the TUIC inbound itself."),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             CField(reset, { reset = it.filter(Char::isDigit) }, tr("Traffic reset period (days, 0 = off)"), KeyboardType.Number)
             // ---- Renewal, reset cycle and devices (panel v3.7.0) ----
             CField(resetDay, { resetDay = it.filter(Char::isDigit).take(2) }, tr("Renew on day (0 = interval)"), KeyboardType.Number)
@@ -301,6 +333,18 @@ fun ClientEditorScreen(
                 )
             }
 
+            if (isWireguard || isAmneziawg) {
+                OutlinedTextField(
+                    value = keepAlive,
+                    onValueChange = { v -> keepAlive = v.filter(Char::isDigit).take(5) },
+                    label = { Text(tr("Keepalive (seconds)")) },
+                    supportingText = { Text(tr("How often the client sends a keepalive. 25 keeps NAT open and brings an idle peer back after any drop; 0 turns it off.")) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             if (!isNew) {
                 OutlinedButton(onClick = onShowLinks, modifier = Modifier.fillMaxWidth()) {
                     Text(tr("Show connection links"))
@@ -321,14 +365,19 @@ fun ClientEditorScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Image(
-                                painter = rememberQrCodePainter(sub),
-                                contentDescription = null,
-                                modifier = Modifier.size(200.dp),
-                            )
+                            QrImage(sub)
                             SelectionContainer { Text(sub, style = MaterialTheme.typography.bodySmall) }
                             LinkActions(sub)
                             subInfo?.let { SubStatusRow(it) }
+                            if (happLinkEnabled != null) {
+                                HappLinkBlock(
+                                    enabled = happLinkEnabled,
+                                    link = happLink,
+                                    loading = happLinkLoading,
+                                    error = happLinkError,
+                                    onGenerate = onGenerateHappLink,
+                                )
+                            }
                         }
                     }
                 }
@@ -339,11 +388,7 @@ fun ClientEditorScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Image(
-                                painter = rememberQrCodePainter(link),
-                                contentDescription = null,
-                                modifier = Modifier.size(200.dp),
-                            )
+                            QrImage(link)
                             SelectionContainer { Text(link, style = MaterialTheme.typography.bodySmall) }
                             LinkActions(link)
                         }
@@ -486,6 +531,83 @@ private fun LinkActions(content: String) {
         }
         OutlinedButton(onClick = { platformShareText(content) }) {
             Text(tr("Share"))
+        }
+    }
+}
+
+/** QR code for [content]. qrose encodes in the painter's constructor and throws when the
+ *  data exceeds a QR code's capacity, so the painter is built inside a catch and a link
+ *  that doesn't fit gets the copy/share note instead of crashing the screen. */
+@Composable
+private fun QrImage(content: String) {
+    val painter = remember(content) { runCatching { QrCodePainter(content, QrOptions {}) }.getOrNull() }
+    if (painter != null) {
+        Image(painter = painter, contentDescription = null, modifier = Modifier.size(200.dp))
+    } else {
+        QrTooLongNote()
+    }
+}
+
+@Composable
+private fun QrTooLongNote() {
+    Text(
+        tr("Too long for a QR code — copy or share the link instead."),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** Encrypted Happ link for the subscription (panel v3.8.0). The panel builds it on
+ *  demand; the switch that allows it lives in the panel's subscription settings. */
+@Composable
+private fun HappLinkBlock(
+    enabled: Boolean,
+    link: String?,
+    loading: Boolean,
+    error: String?,
+    onGenerate: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        HorizontalDivider()
+        Text(tr("Encrypted Happ link"), style = MaterialTheme.typography.titleSmall)
+        val errorText = error?.let {
+            if (it == HAPP_SOURCE_TOO_LONG) tr("The subscription URL is longer than the panel allows for Happ links (8192 bytes).")
+            else "${tr("Couldn't create the Happ link")}: $it"
+        }
+        when {
+            !enabled -> Text(
+                tr("Turned off on the panel. Enable \"Encrypted subscription links\" in the panel's settings: Subscription → Happ → Subscription links."),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            loading -> CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+            link != null -> {
+                // The link stays valid at any length; past QR level M's capacity it is offered
+                // for copy/share only, the same as when the encoder refuses it.
+                if (link.encodeToByteArray().size <= QR_MAX_BYTES) QrImage(link) else QrTooLongNote()
+                SelectionContainer {
+                    Text(link, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+                LinkActions(link)
+                Text(
+                    tr("Only the Happ app opens this link, but anyone who has it may still recover or share the subscription URL."),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                // A failed regenerate keeps showing the previous link, so name the failure too.
+                errorText?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = onGenerate) { Text(tr("Regenerate")) }
+            }
+            else -> {
+                errorText?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                OutlinedButton(onClick = onGenerate) {
+                    Text(if (error != null) tr("Retry") else tr("Create encrypted link"))
+                }
+            }
         }
     }
 }

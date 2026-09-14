@@ -211,7 +211,9 @@ data class Client(
         secret = secret, adTag = adTag,
         privateKey = privateKey, publicKey = publicKey, preSharedKey = preSharedKey,
         allowedIPs = allowedIPs.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-        keepAlive = keepAlive,
+        // Only a real keepalive goes back: a row's 0 can't tell "off" from "never set",
+        // and an explicit 0 would be written into non-tunnel clients too.
+        keepAlive = keepAlive.takeIf { it > 0 },
         flow = flow, limitIp = limitIp, totalGB = totalGB, expiryTime = expiryTime,
         enable = enable, tgId = tgId, subId = subId, group = group, comment = comment,
         reset = reset, resetDay = resetDay, resetMax = resetMax,
@@ -233,7 +235,9 @@ data class ClientModel(
     val publicKey: String = "",
     val preSharedKey: String = "",
     val allowedIPs: List<String> = emptyList(),
-    val keepAlive: Int = 0,
+    // Null drops the key, so panel v3.8.0 keeps the stored keepalive; any number, 0
+    // included, is written into the client's settings whatever its protocol.
+    val keepAlive: Int? = null,
     val security: String = "auto",
     val flow: String = "",
     val limitIp: Int = 0,
@@ -384,14 +388,47 @@ data class BulkEmailsRequest(val emails: List<String>)
 
 /** Body for POST /panel/api/clients/bulkAdjust. Shifts each client's expiry by
  *  [addDays] and traffic limit by [addBytes] (both may be negative); [flow] sets
- *  the XTLS flow — "" leaves it, "none" clears it, vision values set it. */
+ *  the XTLS flow — "" leaves it, "none" clears it, vision values set it.
+ *
+ *  Panel v3.8.0 adds [limitHwid] — null leaves every device limit alone (sharedJson
+ *  drops nulls, so the key is not sent) — and [adTag]: "" leaves the MTProto sponsor
+ *  tag alone, "none" clears it, a 32-hex tag sets it (MTProto inbounds only). Older
+ *  panels silently ignore both keys, so the dialog offers them on 3.8.0+ only. */
 @Serializable
 data class BulkAdjustRequest(
     val emails: List<String>,
     val addDays: Int = 0,
     val addBytes: Long = 0,
     val flow: String = "",
+    val limitHwid: Int? = null,
+    val adTag: String = "",
 )
+
+/** Result of POST /panel/api/clients/bulkAdjust: how many clients changed, and why
+ *  the rest were skipped (same {email, reason} entries as the bulk delete report). */
+@Serializable
+data class BulkAdjustResult(val adjusted: Int = 0, val skipped: List<BulkDeleteSkip> = emptyList())
+
+private val BULK_AD_TAG = Regex("^[0-9a-fA-F]{32}$")
+
+/** The bulk-adjust MTProto ad tag as the panel accepts it: empty (no change),
+ *  "none" (clear) or exactly 32 hex characters. */
+fun isValidBulkAdTag(value: String): Boolean =
+    value.isEmpty() || value == "none" || BULK_AD_TAG.matches(value)
+
+// ---- Encrypted Happ link (POST /panel/api/clients/happLink/:id, v3.8.0) ---
+
+/** The client's subscription URL encrypted into a `happ://crypt5/…` link that only
+ *  the Happ app opens. The panel builds it on demand and stores nothing, so every
+ *  call can return a different link for the same subscription. */
+@Serializable
+data class HappLinkResult(val encryptedLink: String = "")
+
+/** The panel's exact message when the subscription URL is over its 8192-byte limit. */
+const val HAPP_SOURCE_TOO_LONG = "happ_source_too_long"
+
+/** QR version 40 at error-correction level M holds at most this many bytes. */
+const val QR_MAX_BYTES = 2331
 
 /** Body for POST /panel/api/clients/bulkDel. */
 @Serializable
@@ -537,6 +574,9 @@ data class ClientHwid(
     val deviceOs: String = "",
     val osVersion: String = "",
     val deviceModel: String = "",
+    // Panel v3.8.0: the first 12 characters of the stored HWID hash — enough to
+    // tell two similar devices apart without exposing the hash itself.
+    val fingerprint: String = "",
 ) {
     /** What to show as the device's name: model, else OS, else the user agent. */
     val label: String

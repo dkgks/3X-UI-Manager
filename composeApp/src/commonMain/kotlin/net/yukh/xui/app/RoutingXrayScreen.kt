@@ -26,6 +26,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -68,6 +70,8 @@ fun RoutingXrayScreen(
     onCancel: () -> Unit,
     inbounds: List<InboundSlim> = emptyList(),
     onRouteTest: (suspend (String, String, String, String, String) -> RouteTestResult?)? = null,
+    /** Panel v3.8.0+: a rule can carry a panel-only comment. */
+    panel380: Boolean = false,
 ) {
     var editRule by remember { mutableStateOf<Int?>(null) }
     var editBal by remember { mutableStateOf<Int?>(null) }
@@ -128,6 +132,18 @@ fun RoutingXrayScreen(
                                 val l = rules().toMutableList(); l[i] = jsonPutBool(l[i], listOf("enabled"), v); setRules(l)
                             })
                         }
+                        val note = jsonGetString(rule, listOf("comment"))
+                        if (note.isNotBlank()) {
+                            Text(
+                                note,
+                                modifier = Modifier.padding(end = 8.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontStyle = FontStyle.Italic,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         Row(Modifier.fillMaxWidth(), Arrangement.End, Alignment.CenterVertically) {
                             TextButton(onClick = { editRule = i }) { Text(tr("Edit")) }
                             TextButton(onClick = { setRules(rules().filterIndexed { j, _ -> j != i }) }) { Text(tr("Delete"), color = MaterialTheme.colorScheme.error) }
@@ -154,6 +170,7 @@ fun RoutingXrayScreen(
     editRule?.let { idx ->
         RuleDialog(
             initial = if (idx >= 0) rules().getOrElse(idx) { "{}" } else "{}",
+            showComment = panel380,
             onConfirm = { obj -> val l = rules().toMutableList(); if (idx >= 0) l[idx] = obj else l.add(obj); setRules(l); editRule = null },
             onDismiss = { editRule = null },
         )
@@ -279,7 +296,7 @@ private fun ruleSummary(rule: String): String {
 }
 
 @Composable
-private fun RuleDialog(initial: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+private fun RuleDialog(initial: String, showComment: Boolean, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var obj by remember { mutableStateOf(initial) }
     fun g(k: String) = jsonGetString(obj, listOf(k))
     fun putOrRemove(k: String, v: String) { obj = if (v.isBlank()) jsonRemove(obj, listOf(k)) else jsonPutString(obj, listOf(k), v) }
@@ -291,6 +308,10 @@ private fun RuleDialog(initial: String, onConfirm: (String) -> Unit, onDismiss: 
         title = { Text(tr("Routing rule")) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (showComment) {
+                    // Panel-only note (v3.8.0): the panel strips it before the config reaches Xray.
+                    XrayField(g("comment"), { putOrRemove("comment", it.take(200)) }, tr("Comment (panel only)"))
+                }
                 XrayLabel(tr("Target (one of)"))
                 XrayField(g("outboundTag"), { putOrRemove("outboundTag", it); if (it.isNotBlank()) obj = jsonRemove(obj, listOf("balancerTag")) }, tr("Outbound tag"))
                 XrayField(g("balancerTag"), { putOrRemove("balancerTag", it); if (it.isNotBlank()) obj = jsonRemove(obj, listOf("outboundTag")) }, tr("Balancer tag"))

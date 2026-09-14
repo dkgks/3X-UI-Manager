@@ -33,6 +33,7 @@ import net.yukh.xui.shared.dto.ApiResponse
 import net.yukh.xui.shared.dto.ApiToken
 import net.yukh.xui.shared.dto.ApiTokenScope
 import net.yukh.xui.shared.dto.BulkAdjustRequest
+import net.yukh.xui.shared.dto.BulkAdjustResult
 import net.yukh.xui.shared.dto.BulkDelRequest
 import net.yukh.xui.shared.dto.BulkDeleteResult
 import net.yukh.xui.shared.dto.BulkEmailsRequest
@@ -47,6 +48,7 @@ import net.yukh.xui.shared.dto.EnableRequest
 import net.yukh.xui.shared.dto.GroupAddClientsRequest
 import net.yukh.xui.shared.dto.GroupNameRequest
 import net.yukh.xui.shared.dto.GroupRenameRequest
+import net.yukh.xui.shared.dto.HappLinkResult
 import net.yukh.xui.shared.dto.InboundIdsRequest
 import net.yukh.xui.shared.dto.InboundModel
 import net.yukh.xui.shared.dto.InboundSlim
@@ -207,10 +209,16 @@ class PanelApi(baseUrl: String, private val token: String, private val allowInse
             auth(); contentType(ContentType.Application.Json); setBody(BulkEmailsRequest(emails))
         }.body()
 
-    suspend fun bulkAdjustClients(req: BulkAdjustRequest): ApiAck =
+    /** obj is the {adjusted, skipped[]} report (every panel since v3.4.1 sends one). */
+    suspend fun bulkAdjustClients(req: BulkAdjustRequest): ApiResponse<BulkAdjustResult> =
         client.post("$base/panel/api/clients/bulkAdjust") {
             auth(); contentType(ContentType.Application.Json); setBody(req)
         }.body()
+
+    /** Panel v3.8.0: an encrypted Happ link for the client with this record id. The
+     *  panel stores nothing; a disabled switch or any failure answers success=false. */
+    suspend fun happLink(clientId: Int): ApiResponse<HappLinkResult> =
+        client.post("$base/panel/api/clients/happLink/$clientId") { auth() }.body()
 
     suspend fun bulkDelClients(req: BulkDelRequest): ApiAck =
         client.post("$base/panel/api/clients/bulkDel") {

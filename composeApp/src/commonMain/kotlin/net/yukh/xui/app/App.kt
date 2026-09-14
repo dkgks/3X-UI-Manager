@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -45,7 +46,9 @@ import net.yukh.xui.shared.api.AuthExpiredException
 import net.yukh.xui.shared.api.PanelApi
 import net.yukh.xui.shared.api.PanelFeatureUnsupportedException
 import net.yukh.xui.shared.api.UpdateChecker
+import net.yukh.xui.shared.api.supportsPanel380
 import net.yukh.xui.shared.dto.BulkAdjustRequest
+import net.yukh.xui.shared.dto.BulkAdjustResult
 import net.yukh.xui.shared.dto.BulkDelRequest
 import net.yukh.xui.shared.dto.Client
 import net.yukh.xui.shared.dto.ClientCreatePayload
@@ -164,6 +167,15 @@ fun App() {
             var geoAllUpdating by remember { mutableStateOf(false) }
             var updatingNodeIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
             var bulkBusy by remember { mutableStateOf(false) }
+            // Outcome of the last bulk adjust (the panel's report), shown on the Clients tab.
+            var bulkMessage by remember { mutableStateOf<String?>(null) }
+            var bulkError by remember { mutableStateOf<String?>(null) }
+            // Encrypted Happ link (panel v3.8.0) in the client editor. The switch stays
+            // null until the panel's settings have been read.
+            var clientHappEnabled by remember { mutableStateOf<Boolean?>(null) }
+            var clientHappLink by remember { mutableStateOf<String?>(null) }
+            var clientHappLoading by remember { mutableStateOf(false) }
+            var clientHappError by remember { mutableStateOf<String?>(null) }
             var xrayBusy by remember { mutableStateOf(false) }
             // Optimistic Xray running-state, pinned ~6 s after a control action so a
             // lagging 5 s poll doesn't flicker the state back.
@@ -506,6 +518,16 @@ fun App() {
                 speedTracker.prevTotals = emptyMap()
                 speedTracker.prevClientTotals = emptyMap()
                 error = null
+                bulkMessage = null
+                bulkError = null
+            }
+
+            // Forget the client editor's Happ link state before another client (or panel).
+            fun clearClientHappLink() {
+                clientHappEnabled = null
+                clientHappLink = null
+                clientHappLoading = false
+                clientHappError = null
             }
 
             // Switch the active connection to another saved panel and refresh all screens.
@@ -565,6 +587,10 @@ fun App() {
                     addBusy = false
                 }
             }
+
+            // Panel v3.8.0 features follow the active panel's version from its last status
+            // poll; before the first one they stay hidden.
+            val panel380 = supportsPanel380(status?.panelVersion.orEmpty())
 
             CompositionLocalProvider(LocalAppLanguage provides lang, LocalSpeedInBits provides speedInBits) {
                 // The lock only gates the signed-in UI. When not connected the
@@ -636,6 +662,11 @@ fun App() {
                                     if (c != null && s?.success == true && s.obj != null)
                                         s.obj!!.subscriptionUrl(PanelSubSettings.hostOf(baseUrl), c.subId)
                                     else null
+                                // Encrypted Happ link (panel v3.8.0): offered once the panel's switch
+                                // is known, read fresh so a switch flipped a moment ago counts.
+                                if (editingClient === c) {
+                                    clientHappEnabled = if (panel380 && s?.success == true) s.obj?.happLinkEnable else null
+                                }
                                 // The customer's-eye status (panel v3.6.0+). The sub
                                 // server may be unreachable from the phone or predate
                                 // the endpoint — then the readout is simply omitted.
@@ -666,6 +697,39 @@ fun App() {
                             }
                         },
                         panelTimeZone = panelTimeZone,
+                        happLinkEnabled = clientHappEnabled,
+                        happLink = clientHappLink,
+                        happLinkLoading = clientHappLoading,
+                        happLinkError = clientHappError,
+                        onGenerateHappLink = {
+                            val target = editingClient
+                            if (target != null && !clientHappLoading) {
+                                clientHappLoading = true
+                                clientHappError = null
+                                scope.launch {
+                                    var link: String? = null
+                                    var failure: String? = null
+                                    try {
+                                        val r = api?.happLink(target.id)
+                                        val encrypted = r?.obj?.encryptedLink.orEmpty()
+                                        when {
+                                            r == null -> failure = "Network error"
+                                            !r.success -> failure = r.msg.ifBlank { "Request rejected" }
+                                            encrypted.isBlank() -> failure = "empty Happ link"
+                                            else -> link = encrypted
+                                        }
+                                    } catch (e: Throwable) {
+                                        failure = e.message ?: "Network error"
+                                    }
+                                    // The editor may have moved on to another client; its link must not show there.
+                                    if (editingClient === target) {
+                                        if (link != null) clientHappLink = link
+                                        clientHappError = failure
+                                        clientHappLoading = false
+                                    }
+                                }
+                            }
+                        },
                         onShowDevices = {
                             showHwids = true
                             scope.launch {
@@ -707,7 +771,7 @@ fun App() {
                                     }
                                 } catch (e: Throwable) { editorError = e.message ?: "Network error"; null }
                                 editorSaving = false
-                                if (r?.success == true) { editingClient = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); refreshAll() }
+                                if (r?.success == true) { editingClient = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); clearClientHappLink(); refreshAll() }
                                 else if (r != null) editorError = r.msg.ifBlank { "Save failed" }
                             }
                         },
@@ -717,11 +781,11 @@ fun App() {
                                 val r = try { api?.deleteClient(editingClient!!.email) }
                                     catch (e: Throwable) { editorError = e.message ?: "Network error"; null }
                                 editorSaving = false
-                                if (r?.success == true) { editingClient = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); refreshAll() }
+                                if (r?.success == true) { editingClient = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); clearClientHappLink(); refreshAll() }
                                 else if (r != null) editorError = r.msg.ifBlank { "Delete failed" }
                             }
                         },
-                        onCancel = { editingClient = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); clientIpsLoaded = false; editorError = null },
+                        onCancel = { editingClient = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); clientIpsLoaded = false; editorError = null; clearClientHappLink() },
                     )
                     if (showHwids) {
                         val hwidEmail = editingClient?.email.orEmpty()
@@ -749,6 +813,14 @@ fun App() {
                                                         style = MaterialTheme.typography.labelMedium,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     )
+                                                    if (d.fingerprint.isNotBlank()) {
+                                                        Text(
+                                                            tr("Device fingerprint") + ": " + d.fingerprint,
+                                                            style = MaterialTheme.typography.labelMedium,
+                                                            fontFamily = FontFamily.Monospace,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        )
+                                                    }
                                                 }
                                                 TextButton(onClick = {
                                                     scope.launch {
@@ -926,6 +998,7 @@ fun App() {
                         } else {
                             null
                         },
+                        panel380 = panel380,
                     )
                 } else if (showGroups && api != null) {
                     GroupsScreen(api = api!!, lang = lang, onClose = { showGroups = false })
@@ -947,13 +1020,14 @@ fun App() {
                             null
                         },
                         onOutboundSubs = { showOutboundSubs = true },
+                        panel380 = panel380,
                     )
                 } else if (showPanelAdmin && api != null) {
                     PanelAdminScreen(api = api!!, lang = lang, onClose = { showPanelAdmin = false })
                 } else if (showMtls && api != null) {
                     MtlsScreen(api = api!!, lang = lang, onClose = { showMtls = false })
                 } else if (showBackup && api != null) {
-                    BackupScreen(api = api!!, lang = lang, onClose = { showBackup = false })
+                    BackupScreen(api = api!!, lang = lang, panel380 = panel380, onClose = { showBackup = false })
                 } else if (addingPanel) {
                     // "Add another panel" — same form as Connect, but saves a new
                     // profile and switches to it instead of replacing the session.
@@ -1080,8 +1154,8 @@ fun App() {
                                     clients,
                                     speeds = clientSpeeds,
                                     onlineEmails = onlines.toSet(),
-                                    onAdd = { editorError = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); editingClientNew = true; editingClient = Client() },
-                                    onEdit = { c -> editorError = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); editingClientNew = false; editingClient = c },
+                                    onAdd = { editorError = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); clearClientHappLink(); editingClientNew = true; editingClient = Client() },
+                                    onEdit = { c -> editorError = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); clearClientHappLink(); editingClientNew = false; editingClient = c },
                                     onToggle = { c, en -> scope.launch { api?.updateClient(c.email, c.toModel().copy(enable = en)); refreshAll() } },
                                     onExport = {
                                         scope.launch {
@@ -1113,12 +1187,37 @@ fun App() {
                                     onBulkDisable = { emails ->
                                         scope.launch { bulkBusy = true; try { api?.bulkDisableClients(emails) } catch (e: Throwable) {}; bulkBusy = false; refreshAll() }
                                     },
-                                    onBulkAdjust = { emails, days, bytes, flow ->
-                                        scope.launch { bulkBusy = true; try { api?.bulkAdjustClients(BulkAdjustRequest(emails, days, bytes, flow)) } catch (e: Throwable) {}; bulkBusy = false; refreshAll() }
+                                    onBulkAdjust = { emails, days, bytes, flow, limitHwid, adTag ->
+                                        scope.launch {
+                                            bulkBusy = true; bulkMessage = null; bulkError = null
+                                            try {
+                                                val r = api?.bulkAdjustClients(BulkAdjustRequest(emails, days, bytes, flow, limitHwid, adTag))
+                                                if (r != null && r.success) {
+                                                    // A panel that acks without a report counts every client as adjusted.
+                                                    val report = r.obj ?: BulkAdjustResult(adjusted = emails.size)
+                                                    val skipped = report.skipped
+                                                    bulkMessage = if (skipped.isEmpty()) {
+                                                        "${tr(lang, "Adjusted")}: ${report.adjusted}"
+                                                    } else {
+                                                        val reason = skipped.first().reason.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
+                                                        "${tr(lang, "Adjusted")}: ${report.adjusted}, ${tr(lang, "skipped")}: ${skipped.size}$reason"
+                                                    }
+                                                } else if (r != null) {
+                                                    bulkError = "${tr(lang, "Action failed")}: ${r.msg}"
+                                                }
+                                            } catch (e: Throwable) {
+                                                bulkError = "${tr(lang, "Action failed")}: ${e.message.orEmpty()}"
+                                            }
+                                            bulkBusy = false; refreshAll()
+                                        }
                                     },
                                     onBulkDelete = { emails ->
                                         scope.launch { bulkBusy = true; try { api?.bulkDelClients(BulkDelRequest(emails)) } catch (e: Throwable) {}; bulkBusy = false; refreshAll() }
                                     },
+                                    panel380 = panel380,
+                                    bulkMessage = bulkMessage,
+                                    bulkError = bulkError,
+                                    onDismissBulkMessage = { bulkMessage = null; bulkError = null },
                                 )
                                 3 -> NodesListScreen(
                                     nodes,

@@ -72,11 +72,15 @@ fun OutboundsXrayScreen(
     onCancel: () -> Unit,
     onTestOutbound: (suspend (String, String) -> TestOutboundResult?)? = null,
     onOutboundSubs: () -> Unit,
+    panel380: Boolean = false,
 ) {
     var editing by remember { mutableStateOf<Int?>(null) } // index, -1 = new
     var showAdd by remember { mutableStateOf(false) }
     var showImport by remember { mutableStateOf(false) }
     var testing by remember { mutableStateOf<Int?>(null) }
+    // AmneziaWG needs panel v3.8.0, which runs the tunnel itself; an older panel would
+    // hand the outbound to Xray, which has no such protocol.
+    val protocols = if (panel380) OUTBOUND_PROTOCOLS + "amneziawg" else OUTBOUND_PROTOCOLS
 
     fun list() = jsonGetObjectList(configJson, listOf("outbounds"))
     fun setList(l: List<String>) = onConfigChange(jsonSetObjectList(configJson, listOf("outbounds"), l))
@@ -86,6 +90,7 @@ fun OutboundsXrayScreen(
         val initial = if (idx >= 0) list().getOrElse(idx) { defaultOutbound("freedom", "out") } else defaultOutbound("freedom", "out")
         OutboundEditor(
             initial = initial,
+            protocols = protocols,
             saving = saving,
             onCancel = { editing = null },
             onDone = { obj -> val l = list().toMutableList(); if (idx >= 0) l[idx] = obj else l.add(obj); setList(l); editing = null },
@@ -145,6 +150,7 @@ fun OutboundsXrayScreen(
 
     if (showAdd) {
         ProtocolPickerDialog(
+            protocols = protocols,
             onPick = { proto -> showAdd = false; setList(list() + defaultOutbound(proto, proto + "-out")) },
             onDismiss = { showAdd = false },
         )
@@ -226,7 +232,7 @@ private fun TestOutboundDialog(
 }
 
 @Composable
-private fun OutboundEditor(initial: String, saving: Boolean, onCancel: () -> Unit, onDone: (String) -> Unit) {
+private fun OutboundEditor(initial: String, protocols: List<String>, saving: Boolean, onCancel: () -> Unit, onDone: (String) -> Unit) {
     var obj by remember { mutableStateOf(initial) }
     var raw by remember { mutableStateOf(false) }
     val protocol = jsonGetString(obj, listOf("protocol")).ifBlank { "freedom" }
@@ -239,11 +245,12 @@ private fun OutboundEditor(initial: String, saving: Boolean, onCancel: () -> Uni
         ) {
             XrayField(jsonGetString(obj, listOf("tag")), { obj = jsonPutString(obj, listOf("tag"), it) }, tr("Tag"))
             XrayLabel(tr("Protocol"))
-            XrayChips(OUTBOUND_PROTOCOLS, protocol) { p -> obj = defaultOutbound(p, jsonGetString(obj, listOf("tag"))) }
+            XrayChips(protocols, protocol) { p -> obj = defaultOutbound(p, jsonGetString(obj, listOf("tag"))) }
 
             // Top-level target resolution (panel 3.5.0). Freedom/WireGuard carry
-            // their own settings.domainStrategy control, so skip them here.
-            if (protocol != "freedom" && protocol != "wireguard") {
+            // their own settings.domainStrategy control, and the panel runs AmneziaWG
+            // outside Xray, so skip them here.
+            if (protocol != "freedom" && protocol != "wireguard" && protocol != "amneziawg") {
                 XrayLabel(tr("Target Strategy"))
                 XrayChips(FREEDOM_DOMAIN_STRATEGY, jsonGetString(obj, listOf("targetStrategy")).ifBlank { "AsIs" }) { v ->
                     obj = if (v == "AsIs") jsonRemove(obj, listOf("targetStrategy"))
@@ -376,13 +383,13 @@ private fun parseOutboundsImport(text: String): List<String>? {
 }
 
 @Composable
-private fun ProtocolPickerDialog(onPick: (String) -> Unit, onDismiss: () -> Unit) {
+private fun ProtocolPickerDialog(protocols: List<String>, onPick: (String) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(tr("Add outbound")) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                OUTBOUND_PROTOCOLS.forEach { proto -> TextButton(onClick = { onPick(proto) }, modifier = Modifier.fillMaxWidth()) { Text(proto, Modifier.fillMaxWidth()) } }
+                protocols.forEach { proto -> TextButton(onClick = { onPick(proto) }, modifier = Modifier.fillMaxWidth()) { Text(proto, Modifier.fillMaxWidth()) } }
             }
         },
         confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } },
