@@ -14,6 +14,8 @@ import net.yukh.xui.data.repo.PanelRepository
 
 data class BackupUiState(
     val busy: Boolean = false,
+    /** After an import on panel v3.8.0+: waiting for the panel's own restart. */
+    val restarting: Boolean = false,
     /** Downloaded backup awaiting a "save to" location chosen by the user. */
     val pendingBackup: DbBackup? = null,
     val message: String? = null,
@@ -53,13 +55,29 @@ class BackupViewModel @Inject constructor(
         _state.update { it.copy(pendingBackup = null, message = message) }
     }
 
-    /** Upload a chosen backup file to restore the panel (restarts Xray). */
+    /** Upload a chosen backup file to restore the panel. Xray restarts; a v3.8.0+
+     *  panel then restarts itself too, and the screen waits until it answers again. */
     fun restore(filename: String, bytes: ByteArray) {
         if (_state.value.busy) return
         _state.update { it.copy(busy = true, error = null, message = null) }
         viewModelScope.launch {
             repo.importDb(filename, bytes)
-                .onSuccess { _state.update { it.copy(busy = false, message = "Restored — Xray restarted") } }
+                .onSuccess {
+                    if (!repo.isPanel380()) {
+                        _state.update { it.copy(busy = false, message = "Restored — Xray restarted") }
+                        return@onSuccess
+                    }
+                    _state.update { it.copy(restarting = true) }
+                    val back = repo.awaitPanelAfterRestart()
+                    _state.update {
+                        it.copy(
+                            busy = false,
+                            restarting = false,
+                            message = if (back) "Restored — the panel restarted and is back" else null,
+                            error = if (back) null else "Restored, but the panel hasn't answered for a minute since its restart",
+                        )
+                    }
+                }
                 .onFailure { e -> _state.update { it.copy(busy = false, error = e.message ?: "Restore failed") } }
         }
     }

@@ -224,95 +224,106 @@ fun InboundEditorScreen(
 
             HorizontalDivider()
 
-            // ---- Transport ----
-            SectionTitle(tr("Transport"))
-            LabeledDropdown(tr("Network"), state.network, NETWORKS, true, vm::setNetwork)
-            when (state.network) {
-                "ws" -> {
-                    val ws = state.stream.child("wsSettings")
-                    Field(tr("Path"), ws.string("path"), vm::setWsPath)
-                    Field(tr("Host"), ws.string("host"), vm::setWsHost)
-                }
-                "httpupgrade" -> {
-                    val hu = state.stream.child("httpupgradeSettings")
-                    Field(tr("Path"), hu.string("path"), vm::setHttpPath)
-                    Field(tr("Host"), hu.string("host"), vm::setHttpHost)
-                }
-                "grpc" -> {
-                    val g = state.stream.child("grpcSettings")
-                    Field(tr("Service name"), g.string("serviceName"), vm::setGrpcService)
-                }
-            }
-
-            HorizontalDivider()
-
-            // ---- Security ----
-            SectionTitle(tr("Security"))
-            LabeledDropdown(tr("Security"), state.security, SECURITIES, true, vm::setSecurity)
-            when (state.security) {
-                "tls" -> {
-                    val tls = state.stream.child("tlsSettings")
-                    Field(tr("SNI (server name)"), tls.string("serverName"), vm::setTlsServerName)
-                }
-                "reality" -> {
-                    val r = state.stream.child("realitySettings")
-                    val rs = r.child("settings")
-                    Field(tr("Dest (target)"), r.string("dest"), vm::setRealityDest)
-                    Field(tr("Server names (comma-separated)"), r.strings("serverNames").joinToString(", "), vm::setRealityServerNames)
-                    Field(tr("Short IDs (comma-separated)"), r.strings("shortIds").joinToString(", "), vm::setRealityShortIds)
-                    LabeledDropdown(tr("Fingerprint"), rs.string("fingerprint").ifBlank { "chrome" }, FINGERPRINTS, true, vm::setRealityFingerprint)
-                    Field(tr("Public key"), rs.string("publicKey"), vm::setRealityPublicKey)
-                    Field(tr("Private key"), r.string("privateKey"), vm::setRealityPrivateKey)
-                }
-            }
-
-            // Raw streamSettings escape hatch for advanced TLS/REALITY/sockopt/XHTTP
-            // fields not exposed above (Verify Peer Cert By Name, Limit Fallback,
-            // Session ID Table/Length, Real client IP, FinalMask, …).
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { showStreamAdvanced = !showStreamAdvanced },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(tr("Advanced: stream settings (JSON)"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                Text(if (showStreamAdvanced) tr("Hide") else tr("Show"), color = MaterialTheme.colorScheme.primary)
-            }
-            if (showStreamAdvanced) {
-                var streamText by remember(showStreamAdvanced) {
-                    mutableStateOf(keygenJson.encodeToString(JsonElement.serializer(), state.stream))
-                }
-                var streamErr by remember(showStreamAdvanced) { mutableStateOf<String?>(null) }
-                OutlinedTextField(
-                    value = streamText,
-                    onValueChange = { txt ->
-                        streamText = txt
-                        runCatching { keygenJson.parseToJsonElement(txt).asObject() }
-                            .onSuccess { streamErr = null; vm.setEditorStreamRaw(it) }
-                            .onFailure { streamErr = invalidJsonMsg }
-                    },
-                    label = { Text("streamSettings") },
-                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
+            if (state.protocol == "tuic") {
+                // TUIC is served by the panel's tuic-server sidecar, not Xray (panel v3.8.0).
+                Text(
+                    tr("TUIC runs in the panel's own tuic-server process, not in Xray, so it has no transport, TLS/REALITY or sniffing settings. Its certificate, SNI and QUIC options are in the protocol settings JSON below."),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                streamErr?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            }
+                HorizontalDivider()
+            } else {
+                // ---- Transport ----
+                SectionTitle(tr("Transport"))
+                LabeledDropdown(tr("Network"), state.network, NETWORKS, true, vm::setNetwork)
+                when (state.network) {
+                    "ws" -> {
+                        val ws = state.stream.child("wsSettings")
+                        Field(tr("Path"), ws.string("path"), vm::setWsPath)
+                        Field(tr("Host"), ws.string("host"), vm::setWsHost)
+                    }
+                    "httpupgrade" -> {
+                        val hu = state.stream.child("httpupgradeSettings")
+                        Field(tr("Path"), hu.string("path"), vm::setHttpPath)
+                        Field(tr("Host"), hu.string("host"), vm::setHttpHost)
+                    }
+                    "grpc" -> {
+                        val g = state.stream.child("grpcSettings")
+                        Field(tr("Service name"), g.string("serviceName"), vm::setGrpcService)
+                    }
+                }
 
-            HorizontalDivider()
+                HorizontalDivider()
 
-            // ---- Sniffing ----
-            SectionTitle(tr("Sniffing"))
-            SwitchRow(tr("Enabled"), state.sniffing.bool("enabled"), vm::setSniffEnabled)
-            val dest = state.sniffing.strings("destOverride")
-            SNIFF_TARGETS.forEach { target ->
+                // ---- Security ----
+                SectionTitle(tr("Security"))
+                LabeledDropdown(tr("Security"), state.security, SECURITIES, true, vm::setSecurity)
+                when (state.security) {
+                    "tls" -> {
+                        val tls = state.stream.child("tlsSettings")
+                        Field(tr("SNI (server name)"), tls.string("serverName"), vm::setTlsServerName)
+                    }
+                    "reality" -> {
+                        val r = state.stream.child("realitySettings")
+                        val rs = r.child("settings")
+                        Field(tr("Dest (target)"), r.string("dest"), vm::setRealityDest)
+                        Field(tr("Server names (comma-separated)"), r.strings("serverNames").joinToString(", "), vm::setRealityServerNames)
+                        Field(tr("Short IDs (comma-separated)"), r.strings("shortIds").joinToString(", "), vm::setRealityShortIds)
+                        LabeledDropdown(tr("Fingerprint"), rs.string("fingerprint").ifBlank { "chrome" }, FINGERPRINTS, true, vm::setRealityFingerprint)
+                        Field(tr("Public key"), rs.string("publicKey"), vm::setRealityPublicKey)
+                        Field(tr("Private key"), r.string("privateKey"), vm::setRealityPrivateKey)
+                    }
+                }
+
+                // Raw streamSettings escape hatch for advanced TLS/REALITY/sockopt/XHTTP
+                // fields not exposed above (Verify Peer Cert By Name, Limit Fallback,
+                // Session ID Table/Length, Real client IP, FinalMask, …).
                 Row(
-                    modifier = Modifier.fillMaxWidth().clickable { vm.toggleDestOverride(target) },
+                    modifier = Modifier.fillMaxWidth().clickable { showStreamAdvanced = !showStreamAdvanced },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Checkbox(checked = target in dest, onCheckedChange = { vm.toggleDestOverride(target) })
-                    Text(target, style = MaterialTheme.typography.bodyLarge)
+                    Text(tr("Advanced: stream settings (JSON)"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    Text(if (showStreamAdvanced) tr("Hide") else tr("Show"), color = MaterialTheme.colorScheme.primary)
                 }
-            }
+                if (showStreamAdvanced) {
+                    var streamText by remember(showStreamAdvanced) {
+                        mutableStateOf(keygenJson.encodeToString(JsonElement.serializer(), state.stream))
+                    }
+                    var streamErr by remember(showStreamAdvanced) { mutableStateOf<String?>(null) }
+                    OutlinedTextField(
+                        value = streamText,
+                        onValueChange = { txt ->
+                            streamText = txt
+                            runCatching { keygenJson.parseToJsonElement(txt).asObject() }
+                                .onSuccess { streamErr = null; vm.setEditorStreamRaw(it) }
+                                .onFailure { streamErr = invalidJsonMsg }
+                        },
+                        label = { Text("streamSettings") },
+                        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
+                    )
+                    streamErr?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                }
 
-            HorizontalDivider()
+                HorizontalDivider()
+
+                // ---- Sniffing ----
+                SectionTitle(tr("Sniffing"))
+                SwitchRow(tr("Enabled"), state.sniffing.bool("enabled"), vm::setSniffEnabled)
+                val dest = state.sniffing.strings("destOverride")
+                SNIFF_TARGETS.forEach { target ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { vm.toggleDestOverride(target) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = target in dest, onCheckedChange = { vm.toggleDestOverride(target) })
+                        Text(target, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+
+                HorizontalDivider()
+
+            }
 
             if (state.protocol == "vless") {
                 OutlinedButton(

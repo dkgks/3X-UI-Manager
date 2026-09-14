@@ -2,6 +2,8 @@ package net.yukh.xui.data.api
 
 import net.yukh.xui.data.api.dto.ApiAck
 import net.yukh.xui.data.api.dto.BulkAdjustRequest
+import net.yukh.xui.data.api.dto.BulkAdjustResult
+import net.yukh.xui.data.api.dto.HappLinkResult
 import net.yukh.xui.data.api.dto.BulkDelRequest
 import net.yukh.xui.data.api.dto.BulkDeleteResult
 import net.yukh.xui.data.api.dto.BulkEmailsRequest
@@ -174,8 +176,14 @@ interface XuiApi {
     @POST("panel/api/clients/bulkDisable")
     suspend fun bulkDisableClients(@Body body: BulkEmailsRequest): ApiAck
 
+    // obj is the {adjusted, skipped[]} report on panels that send one.
     @POST("panel/api/clients/bulkAdjust")
-    suspend fun bulkAdjustClients(@Body body: BulkAdjustRequest): ApiAck
+    suspend fun bulkAdjustClients(@Body body: BulkAdjustRequest): ApiResponse<BulkAdjustResult>
+
+    // Panel v3.8.0: an encrypted Happ link for the client with this record id. The
+    // panel stores nothing; a disabled switch or any failure answers success=false.
+    @POST("panel/api/clients/happLink/{id}")
+    suspend fun happLink(@Path("id") id: Int): ApiResponse<HappLinkResult>
 
     @POST("panel/api/clients/bulkDel")
     suspend fun bulkDeleteClients(@Body body: BulkDelRequest): ApiAck

@@ -24,7 +24,9 @@ data class ClientModel(
     val publicKey: String = "",
     val preSharedKey: String = "",
     val allowedIPs: List<String> = emptyList(),
-    val keepAlive: Int = 0,
+    // Null leaves it out of the payload: panel v3.8.0 reads a missing value as "keep
+    // what is stored" but writes an explicit 0 into every client, tunnel or not.
+    val keepAlive: Int? = null,
     val security: String = "auto",
     val flow: String = "",
     val limitIp: Int = 0,

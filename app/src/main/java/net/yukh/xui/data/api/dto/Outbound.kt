@@ -82,6 +82,19 @@ fun defaultOutbound(protocol: String, tag: String): JsonObject = buildJsonObject
             }
             put("mtu", 1420)
         }
+        // Panel v3.8.0: the panel runs this tunnel itself and gives Xray a local SOCKS
+        // outbound in its place; the obfuscation values must match the server exactly.
+        "amneziawg" -> putJsonObject("settings") {
+            put("secretKey", "")
+            putJsonArray("address") { add("10.8.0.2/32") }
+            putJsonArray("peers") {
+                addJsonObject {
+                    put("publicKey", ""); put("endpoint", "")
+                    putJsonArray("allowedIPs") { add("0.0.0.0/0"); add("::/0") }
+                    put("keepAlive", 25)
+                }
+            }
+        }
         "loopback" -> putJsonObject("settings") { put("inboundTag", "") }
         else -> putJsonObject("settings") {} // dns and anything else: empty settings
     }

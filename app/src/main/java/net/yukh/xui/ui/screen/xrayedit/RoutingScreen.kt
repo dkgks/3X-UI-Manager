@@ -119,7 +119,7 @@ fun RoutingScreen(onClose: () -> Unit, vm: RoutingViewModel = hiltViewModel()) {
     val rule = state.editingRule
     if (rule != null) {
         RuleEditor(
-            draft = rule.draft, isNew = rule.isNew,
+            draft = rule.draft, isNew = rule.isNew, showComment = state.panel380,
             outboundTags = cfg.outboundTags() + state.subscriptionOutboundTags, balancerTags = cfg.tagList("balancers"),
             inboundTags = cfg.array("inbounds").map { it.asObject().string("tag") }.filter { it.isNotBlank() },
             onChange = vm::updateRuleDraft, onCancel = vm::closeRule,
@@ -318,6 +318,17 @@ private fun RoutingBody(cfg: JsonObject, inboundOptions: List<Pair<String, Strin
                     Column(modifier = Modifier.weight(1f).padding(start = 10.dp).alpha(if (on) 1f else 0.45f)) {
                         Text("#${i + 1}  → $target", style = MaterialTheme.typography.titleSmall)
                         if (src.isNotBlank()) Text(src, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val note = r.string("comment")
+                        if (note.isNotBlank()) {
+                            Text(
+                                note,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                     IconButton(onClick = { val a = rules.toMutableList(); if (i > 0) { val x = a.removeAt(i); a.add(i - 1, x); setRules(a) } }, enabled = i > 0) {
                         Icon(Icons.Filled.KeyboardArrowUp, contentDescription = tr("Move up"))
@@ -388,7 +399,7 @@ private fun RoutingBody(cfg: JsonObject, inboundOptions: List<Pair<String, Strin
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RuleEditor(
-    draft: JsonObject, isNew: Boolean,
+    draft: JsonObject, isNew: Boolean, showComment: Boolean,
     outboundTags: List<String>, balancerTags: List<String>, inboundTags: List<String>,
     onChange: (JsonObject) -> Unit, onCancel: () -> Unit, onDone: () -> Unit,
 ) {
@@ -405,6 +416,10 @@ private fun RuleEditor(
         },
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (showComment) {
+                // Panel-only note (panel v3.8.0): stripped before the config reaches Xray.
+                Field(tr("Comment (panel only)"), draft.string("comment")) { setStr("comment", it.take(200)) }
+            }
             SectionTitle(tr("Target"))
             LabeledDropdown(tr("Outbound tag"), draft.string("outboundTag"), listOf("") + outboundTags) {
                 onChange(if (it.isBlank()) draft.put("outboundTag", null) else draft.putString("outboundTag", it).put("balancerTag", null))

@@ -1,5 +1,6 @@
 package net.yukh.xui.data.repo
 
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +23,7 @@ import net.yukh.xui.data.api.dto.InboundModel
 import net.yukh.xui.data.api.dto.InboundSlim
 import net.yukh.xui.data.api.dto.Node
 import net.yukh.xui.data.api.dto.BulkAdjustRequest
+import net.yukh.xui.data.api.dto.BulkAdjustResult
 import net.yukh.xui.data.api.dto.BulkDelRequest
 import net.yukh.xui.data.api.dto.BulkDeleteResult
 import net.yukh.xui.data.api.dto.BulkEmailsRequest
@@ -92,6 +94,10 @@ class PanelRepository @Inject constructor(
     /** Cached panel settings (sub config). Null until first successful fetch. */
     private var cachedSettings: PanelSettings? = null
 
+    /** Panel version from the last successful status call ("" = not known yet).
+     *  Features that need a newer panel check it through [panelVersion]. */
+    @Volatile private var lastPanelVersion: String = ""
+
     init {
         val all = store.getProfiles()
         _profiles.value = all
@@ -126,6 +132,7 @@ class PanelRepository @Inject constructor(
             _profiles.value = updated
             store.saveProfiles(updated)
             bindProfile(profile)
+            lastPanelVersion = it.panelVersion
         }
     }
 
@@ -137,7 +144,7 @@ class PanelRepository @Inject constructor(
         if (p.auth !is ConnectionAuth.Token) return Result.failure(PanelError.NotConnected)
         bindProfile(p)
         val current = api ?: return Result.failure(PanelError.NotConnected)
-        return safeData { current.getServerStatus() }
+        return safeData { current.getServerStatus() }.onSuccess { lastPanelVersion = it.panelVersion }
     }
 
     /** Remove a saved profile. If it was the active one, fall back to another
@@ -160,6 +167,7 @@ class PanelRepository @Inject constructor(
         currentBaseUrl = null
         currentSubBase = null
         cachedSettings = null
+        lastPanelVersion = ""
         _activeProfileId.value = null
         _connected.value = false
     }
@@ -167,7 +175,30 @@ class PanelRepository @Inject constructor(
     // ---- Server -----------------------------------------------------------
 
     suspend fun getServerStatus(): Result<ServerStatus> =
-        authedData { it.getServerStatus() }
+        authedData { it.getServerStatus() }.onSuccess { lastPanelVersion = it.panelVersion }
+
+    /** The active panel's version, from the last status call or a fresh one; "" when
+     *  the panel can't be reached, so callers treat newer features as unavailable. */
+    suspend fun panelVersion(): String =
+        lastPanelVersion.ifBlank { getServerStatus().getOrNull()?.panelVersion.orEmpty() }
+
+    /** Whether the active panel is v3.8.0 or newer (Happ links, bulk HWID/ad tag, …). */
+    suspend fun isPanel380(): Boolean = supportsPanel380(panelVersion())
+
+    /**
+     * A v3.8.0+ panel restarts itself about three seconds after a database import.
+     * Wait past that, then poll status every two seconds for up to [timeoutMs];
+     * true once the panel answers again.
+     */
+    suspend fun awaitPanelAfterRestart(timeoutMs: Long = 60_000): Boolean {
+        delay(5_000)
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (getServerStatus().isSuccess) return true
+            delay(2_000)
+        }
+        return false
+    }
 
     /** System-metrics history for the dashboard charts (one metric, one bucket). */
     suspend fun metricHistory(metric: String, bucket: Int): Result<List<MetricPoint>> =
@@ -218,7 +249,8 @@ class PanelRepository @Inject constructor(
     }
 
     /** Restore the panel from a backup file. The panel imports it under its own
-     *  engine and restarts Xray (a brief connection drop). */
+     *  engine and restarts Xray (a brief connection drop); v3.8.0+ then restarts the
+     *  whole panel a few seconds later so restored subscription paths take effect. */
     suspend fun importDb(filename: String, bytes: ByteArray): Result<Unit> {
         val part = MultipartBody.Part.createFormData(
             "db", filename, bytes.toRequestBody("application/octet-stream".toMediaTypeOrNull()),
@@ -340,8 +372,31 @@ class PanelRepository @Inject constructor(
             if (enable) it.bulkEnableClients(body) else it.bulkDisableClients(body)
         }
 
-    suspend fun bulkAdjustClients(emails: List<String>, addDays: Int, addBytes: Long, flow: String): Result<Unit> =
-        authedAck { it.bulkAdjustClients(BulkAdjustRequest(emails, addDays, addBytes, flow)) }
+    /** Bulk adjust (panel v3.4.1; [limitHwid] and [adTag] need v3.8.0). Returns the
+     *  panel's report; a panel that acks without one counts every client as adjusted. */
+    suspend fun bulkAdjustClients(
+        emails: List<String>,
+        addDays: Int,
+        addBytes: Long,
+        flow: String,
+        limitHwid: Int? = null,
+        adTag: String = "",
+    ): Result<BulkAdjustResult> = authedDataOrNull {
+        it.bulkAdjustClients(BulkAdjustRequest(emails, addDays, addBytes, flow, limitHwid, adTag))
+    }.map { it ?: BulkAdjustResult(adjusted = emails.size) }
+
+    /** An encrypted Happ link for the client with record id [clientId] (panel v3.8.0).
+     *  A refusal carries the panel's message — for an overlong subscription URL that
+     *  is exactly [net.yukh.xui.data.api.dto.HAPP_SOURCE_TOO_LONG]. */
+    suspend fun happLink(clientId: Int): Result<String> =
+        authedData { it.happLink(clientId) }.mapCatching { r ->
+            r.encryptedLink.ifBlank { throw PanelError.BadResponse("empty Happ link") }
+        }
+
+    /** Whether the panel allows encrypted Happ links, read fresh so a switch the
+     *  operator has just flipped counts. Refreshes the settings cache as well. */
+    suspend fun happLinkEnabled(): Result<Boolean> =
+        authedData { it.getAllSettings() }.onSuccess { cachedSettings = it }.map { it.happLinkEnable }
 
     suspend fun bulkDeleteClients(emails: List<String>): Result<Unit> =
         authedAck { it.bulkDeleteClients(BulkDelRequest(emails)) }
@@ -572,6 +627,7 @@ class PanelRepository @Inject constructor(
         currentBaseUrl = p.baseUrl
         currentSubBase = p.subBaseUrl
         cachedSettings = null
+        lastPanelVersion = ""
         _activeProfileId.value = p.id
         store.setActiveId(p.id)
         _connected.value = true
@@ -592,6 +648,21 @@ class PanelRepository @Inject constructor(
     ): Result<Unit> {
         val current = api ?: return Result.failure(PanelError.NotConnected)
         val r = safeAck { block(current) }
+        if (isUnauthorized(r)) onAuthLost()
+        return r
+    }
+
+    /** Like [authedData], but a successful answer without `obj` is fine and yields
+     *  null — some calls answered with a bare ack on older panels. */
+    private suspend inline fun <T> authedDataOrNull(
+        crossinline block: suspend (XuiApi) -> ApiResponse<T>,
+    ): Result<T?> {
+        val current = api ?: return Result.failure(PanelError.NotConnected)
+        val r: Result<T?> = catching {
+            val resp = block(current)
+            if (resp.success) Result.success(resp.obj)
+            else Result.failure(PanelError.Rejected(resp.msg.ifBlank { "Request rejected" }))
+        }
         if (isUnauthorized(r)) onAuthLost()
         return r
     }

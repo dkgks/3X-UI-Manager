@@ -72,6 +72,7 @@ fun ClientEditorScreen(
     onAdTag: (String) -> Unit,
     onRegenerateSecret: () -> Unit,
     onAllowedIps: (String) -> Unit,
+    onKeepAlive: (String) -> Unit,
     onExpiry: (Long) -> Unit,
     onToggleInbound: (Int) -> Unit,
     onSave: () -> Unit,
@@ -171,6 +172,14 @@ fun ClientEditorScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            if (state.isTuic) {
+                Text(
+                    tr("On a TUIC inbound the panel can't enforce a per-client traffic limit or IP limit — limit traffic on the TUIC inbound itself."),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             OutlinedTextField(
                 value = state.reset,
@@ -343,6 +352,18 @@ fun ClientEditorScreen(
                     label = { Text(tr("WireGuard allowed IPs")) },
                     placeholder = { Text("10.0.0.2/32") },
                     supportingText = { Text(tr("Comma-separated; leave empty to auto-assign.")) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            if (state.isWireguard || state.isAmneziawg) {
+                OutlinedTextField(
+                    value = state.keepAlive,
+                    onValueChange = onKeepAlive,
+                    label = { Text(tr("Keepalive (seconds)")) },
+                    supportingText = { Text(tr("How often the client sends a keepalive. 25 keeps NAT open and brings an idle peer back after any drop; 0 turns it off.")) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

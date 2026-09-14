@@ -49,6 +49,8 @@ data class OutboundsUiState(
     // of the editable list stay meaningful).
     val subTestResults: Map<Int, TestOutboundResult> = emptyMap(),
     val subTesting: Set<Int> = emptySet(),
+    /** Panel v3.8.0+: AmneziaWG can be chosen as an outbound protocol. */
+    val panel380: Boolean = false,
 )
 
 @HiltViewModel
@@ -66,6 +68,8 @@ class OutboundsViewModel @Inject constructor(
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
+            val panel380 = repo.isPanel380()
+            _state.update { it.copy(panel380 = panel380) }
             repo.getXraySetting()
                 .onSuccess { env ->
                     configObj = env.xraySetting.asObject()

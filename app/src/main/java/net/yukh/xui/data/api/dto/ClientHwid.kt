@@ -17,6 +17,9 @@ data class ClientHwid(
     val deviceOs: String = "",
     val osVersion: String = "",
     val deviceModel: String = "",
+    // Panel v3.8.0: the first 12 characters of the stored HWID hash — enough to
+    // tell two similar devices apart without exposing the hash itself.
+    val fingerprint: String = "",
 ) {
     /** What to show as the device's name: model, else OS, else the user agent. */
     val label: String

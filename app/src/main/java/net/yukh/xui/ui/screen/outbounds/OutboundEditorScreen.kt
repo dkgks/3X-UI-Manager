@@ -88,6 +88,7 @@ fun OutboundEditorScreen(
     onDone: () -> Unit,
     onCancel: () -> Unit,
     onDelete: (() -> Unit)?,
+    protocols: List<String> = OUTBOUND_PROTOCOLS,
 ) {
     val draft = editing.draft
     val protocol = draft.outboundProtocol()
@@ -128,14 +129,14 @@ fun OutboundEditorScreen(
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
             Field(tr("Tag"), draft.outboundTag()) { onDraftChange(draft.putString("tag", it)) }
-            LabeledDropdown(tr("Protocol"), protocol, OUTBOUND_PROTOCOLS) { np ->
+            LabeledDropdown(tr("Protocol"), protocol, protocols) { np ->
                 if (np != protocol) onDraftChange(defaultOutbound(np, draft.outboundTag()))
             }
             Field(tr("Send through"), draft.string("sendThrough")) { onDraftChange(draft.putString("sendThrough", it)) }
 
             // Top-level target resolution (panel 3.5.0). Freedom/WireGuard carry
             // their own settings.domainStrategy control, so skip them here.
-            if (protocol != "freedom" && protocol != "wireguard") {
+            if (protocol != "freedom" && protocol != "wireguard" && protocol != "amneziawg") {
                 LabeledDropdown(
                     tr("Target Strategy"),
                     draft.string("targetStrategy").ifBlank { "AsIs" },

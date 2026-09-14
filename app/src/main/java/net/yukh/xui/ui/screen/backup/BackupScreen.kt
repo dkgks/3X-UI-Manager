@@ -50,6 +50,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.yukh.xui.data.repo.DbBackup
+import net.yukh.xui.i18n.LocalAppLanguage
 import net.yukh.xui.i18n.tr
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,9 +66,11 @@ fun BackupScreen(onClose: () -> Unit, vm: BackupViewModel = hiltViewModel()) {
     val msgSaved = tr("Backup saved")
     val msgWriteFailed = tr("Couldn't write the backup file")
     val msgReadFailed = tr("Couldn't read the selected file")
+    val lang = LocalAppLanguage.current
 
-    LaunchedEffect(state.message) { state.message?.let { snackbar.showSnackbar(it); vm.dismissMessage() } }
-    LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it); vm.dismissError() } }
+    // The view model reports in English; translate known messages for the snackbar.
+    LaunchedEffect(state.message) { state.message?.let { snackbar.showSnackbar(tr(lang, it)); vm.dismissMessage() } }
+    LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(tr(lang, it)); vm.dismissError() } }
 
     // Backup: once the DB is downloaded, open a "save to" picker seeded with the
     // panel-chosen filename, then write the bytes to the chosen location.
@@ -164,8 +167,19 @@ fun BackupScreen(onClose: () -> Unit, vm: BackupViewModel = hiltViewModel()) {
             }
 
             if (state.busy) {
-                Box(Modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Column(
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    if (state.restarting) {
+                        Text(
+                            tr("The panel is restarting to apply the restored database…"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -178,7 +192,8 @@ fun BackupScreen(onClose: () -> Unit, vm: BackupViewModel = hiltViewModel()) {
             text = {
                 Text(
                     tr("Importing") + " \"${pick.filename}\" " +
-                        tr("overwrites the panel database and restarts Xray. This can't be undone."),
+                        tr("overwrites the panel database and restarts Xray. This can't be undone.") + "\n\n" +
+                        tr("API tokens come from the backup too: if it doesn't contain this app's token, you'll be asked to reconnect."),
                 )
             },
             confirmButton = {

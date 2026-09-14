@@ -345,6 +345,7 @@ fun MainScreen(
             onAdTag = clientsVm::setEditorAdTag,
             onRegenerateSecret = clientsVm::regenerateSecret,
             onAllowedIps = clientsVm::setEditorAllowedIps,
+            onKeepAlive = clientsVm::setEditorKeepAlive,
             onExpiry = clientsVm::setEditorExpiry,
             onToggleInbound = clientsVm::toggleEditorInbound,
             onSave = clientsVm::saveEditor,

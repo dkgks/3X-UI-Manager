@@ -54,6 +54,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import net.yukh.xui.data.api.dto.HAPP_SOURCE_TOO_LONG
+import net.yukh.xui.data.api.dto.QR_MAX_BYTES
 import net.yukh.xui.data.api.dto.SubInfo
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.ui.qr.qrImageBitmap
@@ -68,6 +70,11 @@ fun ClientShareSheet(
     subUrl: String?,
     subChecked: Boolean,
     subInfo: SubInfo?,
+    happLinkEnabled: Boolean?,
+    happLink: String?,
+    happLinkLoading: Boolean,
+    happLinkError: String?,
+    onGenerateHappLink: () -> Unit,
     sheetState: SheetState,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
@@ -111,6 +118,16 @@ fun ClientShareSheet(
                     subUrl != null -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         QrAndLink(content = subUrl, context = context)
                         if (subInfo != null) SubStatusRow(subInfo)
+                        if (happLinkEnabled != null) {
+                            HappLinkBlock(
+                                enabled = happLinkEnabled,
+                                link = happLink,
+                                loading = happLinkLoading,
+                                error = happLinkError,
+                                onGenerate = onGenerateHappLink,
+                                context = context,
+                            )
+                        }
                     }
                     else -> Text(
                         tr(
@@ -290,6 +307,14 @@ private fun ConnectionItem(
 private fun QrAndLink(content: String, context: Context) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         QrCard(content = content)
+        LinkRow(content = content, context = context)
+    }
+}
+
+/** The link text with copy and share buttons. */
+@Composable
+private fun LinkRow(content: String, context: Context) {
+    Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 content,
@@ -319,7 +344,16 @@ private fun QrAndLink(content: String, context: Context) {
 
 @Composable
 private fun QrCard(content: String) {
-    val bitmap = remember(content) { qrImageBitmap(content, 768) }
+    // Data past the QR capacity makes the encoder throw; say so instead of crashing the sheet.
+    val bitmap = remember(content) { runCatching { qrImageBitmap(content, 768) }.getOrNull() }
+    if (bitmap == null) {
+        Text(
+            tr("Too long for a QR code — copy or share the link instead."),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -332,6 +366,63 @@ private fun QrCard(content: String) {
             contentDescription = tr("QR code"),
             modifier = Modifier.size(220.dp),
         )
+    }
+}
+
+/** Encrypted Happ link for the subscription (panel v3.8.0). The panel builds it on
+ *  demand; the switch that allows it lives in the panel's subscription settings. */
+@Composable
+private fun HappLinkBlock(
+    enabled: Boolean,
+    link: String?,
+    loading: Boolean,
+    error: String?,
+    onGenerate: () -> Unit,
+    context: Context,
+) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        HorizontalDivider()
+        Text(tr("Encrypted Happ link"), style = MaterialTheme.typography.titleSmall)
+        when {
+            !enabled -> Text(
+                tr("Turned off on the panel. Enable \"Encrypted subscription links\" in the panel's settings: Subscription → Happ → Subscription links."),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            loading -> LoadingBlock()
+            link != null -> {
+                // Past what a QR code can hold the link is still valid — offer copy/share only.
+                if (link.encodeToByteArray().size <= QR_MAX_BYTES) {
+                    QrAndLink(content = link, context = context)
+                } else {
+                    Text(
+                        tr("Too long for a QR code — copy or share the link instead."),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    LinkRow(content = link, context = context)
+                }
+                Text(
+                    tr("Only the Happ app opens this link, but anyone who has it may still recover or share the subscription URL."),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = onGenerate) { Text(tr("Regenerate")) }
+            }
+            else -> {
+                if (error != null) {
+                    Text(
+                        if (error == HAPP_SOURCE_TOO_LONG) tr("The subscription URL is longer than the panel allows for Happ links (8192 bytes).")
+                        else "${tr("Couldn't create the Happ link")}: $error",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                OutlinedButton(onClick = onGenerate) {
+                    Text(if (error != null) tr("Retry") else tr("Create encrypted link"))
+                }
+            }
+        }
     }
 }
 

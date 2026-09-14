@@ -39,6 +39,8 @@ data class RoutingUiState(
     /** Tags of outbounds injected from outbound subscriptions — selectable in
      *  rules and balancers even though they aren't in the editable config. */
     val subscriptionOutboundTags: List<String> = emptyList(),
+    /** Panel v3.8.0+: a rule can carry a panel-only comment. */
+    val panel380: Boolean = false,
 )
 
 @HiltViewModel
@@ -53,6 +55,7 @@ class RoutingViewModel @Inject constructor(
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             val inbounds = repo.listInbounds()
+            val panel380 = repo.isPanel380()
             repo.loadXrayConfig()
                 .onSuccess { load ->
                     val opts = inbounds.getOrNull().orEmpty()
@@ -61,7 +64,7 @@ class RoutingViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             loading = false, available = true, config = load.config, testUrl = load.testUrl,
-                            inboundOptions = opts, subscriptionOutboundTags = load.subscriptionOutboundTags,
+                            inboundOptions = opts, subscriptionOutboundTags = load.subscriptionOutboundTags, panel380 = panel380,
                             dirty = false, error = null,
                         )
                     }

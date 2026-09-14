@@ -77,7 +77,7 @@ data class Client(
         publicKey = publicKey,
         preSharedKey = preSharedKey,
         allowedIPs = allowedIPs.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-        keepAlive = keepAlive,
+        keepAlive = keepAlive.takeIf { it > 0 },
         security = security,
         flow = flow,
         limitIp = limitIp,

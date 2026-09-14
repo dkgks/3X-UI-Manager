@@ -22,6 +22,9 @@ data class PanelSettings(
     val subDomain: String = "",
     val subCertFile: String = "",
     val subKeyFile: String = "",
+    // Panel v3.8.0: whether the operator allowed encrypted Happ links in the
+    // client QR window (Settings → Subscription → Happ → Subscription links).
+    val happLinkEnable: Boolean = false,
 ) {
     /**
      * Build the subscription URL for a client, replicating the panel's

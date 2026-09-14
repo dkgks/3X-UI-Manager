@@ -61,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,6 +72,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.serialization.json.Json
 import net.yukh.xui.data.api.dto.Client
+import net.yukh.xui.data.api.dto.isValidBulkAdTag
 import net.yukh.xui.i18n.LocalAppLanguage
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.ui.components.ExportJsonDialog
@@ -265,6 +267,11 @@ fun ClientsScreen(
             subUrl = state.selectedSubUrl,
             subChecked = state.subUrlChecked,
             subInfo = state.selectedSubInfo,
+            happLinkEnabled = state.happLinkEnabled,
+            happLink = state.happLink,
+            happLinkLoading = state.happLinkLoading,
+            happLinkError = state.happLinkError,
+            onGenerateHappLink = vm::generateHappLink,
             sheetState = sheetState,
             onDismiss = vm::closeShareSheet,
             onEdit = { vm.openEditEditor(selectedEmail) },
@@ -337,6 +344,14 @@ fun ClientsScreen(
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                    if (d.fingerprint.isNotBlank()) {
+                                        Text(
+                                            "${tr("Device fingerprint")}: ${d.fingerprint}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                                 TextButton(onClick = { vm.removeHwid(d.id) }) { Text(tr("Remove")) }
                             }
@@ -366,8 +381,9 @@ fun ClientsScreen(
     if (showAdjust) {
         BulkAdjustDialog(
             count = state.selectedEmails.size,
-            onApply = { addDays, addBytes, flow ->
-                vm.bulkAdjust(addDays, addBytes, flow)
+            panel380 = state.panel380,
+            onApply = { addDays, addBytes, flow, limitHwid, adTag ->
+                vm.bulkAdjust(addDays, addBytes, flow, limitHwid, adTag)
                 showAdjust = false
             },
             onDismiss = { showAdjust = false },
@@ -557,12 +573,19 @@ private fun SelectionBar(
 @Composable
 private fun BulkAdjustDialog(
     count: Int,
-    onApply: (Int, Long, String) -> Unit,
+    panel380: Boolean,
+    onApply: (Int, Long, String, Int?, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var days by remember { mutableStateOf("") }
     var gb by remember { mutableStateOf("") }
     var flow by remember { mutableStateOf("") }
+    // Panel v3.8.0 fields; empty leaves each client's value as it is.
+    var hwid by remember { mutableStateOf("") }
+    var adTag by remember { mutableStateOf("") }
+    val adTagValid = isValidBulkAdTag(adTag.trim())
+    val nothingSet = (days.toIntOrNull() ?: 0) == 0 && (gb.toDoubleOrNull() ?: 0.0) == 0.0 &&
+        flow.isEmpty() && hwid.isEmpty() && adTag.isBlank()
     // API flow value → display label (matches the panel's bulk Adjust flow set).
     val flowLabels = linkedMapOf(
         "" to tr("No change"),
@@ -594,14 +617,37 @@ private fun BulkAdjustDialog(
                 LabeledDropdown(tr("Set flow"), flowLabels[flow] ?: "", flowLabels.values.toList()) { sel ->
                     flow = flowLabels.entries.first { it.value == sel }.key
                 }
+                if (panel380) {
+                    OutlinedTextField(
+                        value = hwid,
+                        onValueChange = { hwid = it.filter(Char::isDigit).take(4) },
+                        label = { Text(tr("Device limit (0 = unlimited)")) },
+                        supportingText = { Text(tr("Empty keeps each client's limit. Lowering it removes the extra registered devices.")) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = adTag,
+                        onValueChange = { adTag = it.filter { c -> c.isLetterOrDigit() }.take(32) },
+                        label = { Text(tr("MTProto ad tag")) },
+                        supportingText = { Text(tr("32 hex characters to set, none to clear, empty to keep. MTProto inbounds only.")) },
+                        isError = !adTagValid,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val addDays = days.toIntOrNull() ?: 0
-                val addBytes = ((gb.toDoubleOrNull() ?: 0.0) * 1024.0 * 1024.0 * 1024.0).toLong()
-                onApply(addDays, addBytes, flow)
-            }) { Text(tr("Apply")) }
+            TextButton(
+                onClick = {
+                    val addDays = days.toIntOrNull() ?: 0
+                    val addBytes = ((gb.toDoubleOrNull() ?: 0.0) * 1024.0 * 1024.0 * 1024.0).toLong()
+                    onApply(addDays, addBytes, flow, hwid.toIntOrNull(), adTag.trim())
+                },
+                enabled = !nothingSet && adTagValid,
+            ) { Text(tr("Apply")) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } },
     )

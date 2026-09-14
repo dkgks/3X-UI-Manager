@@ -1,5 +1,6 @@
 package net.yukh.xui.ui.screen.outbounds
 
+import net.yukh.xui.data.api.dto.OUTBOUND_PROTOCOLS
 import androidx.compose.foundation.clickable
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -111,6 +112,7 @@ fun OutboundsScreen(
             onDone = vm::applyDraft,
             onCancel = vm::closeEditor,
             onDelete = if (!editing.isNew) ({ confirmDelete = true }) else null,
+            protocols = if (state.panel380) OUTBOUND_PROTOCOLS + "amneziawg" else OUTBOUND_PROTOCOLS,
         )
         if (confirmDelete) {
             ConfirmDialog(

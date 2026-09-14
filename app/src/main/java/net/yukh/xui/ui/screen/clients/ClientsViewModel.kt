@@ -17,6 +17,7 @@ import net.yukh.xui.data.api.dto.Client
 import net.yukh.xui.data.api.dto.ClientHwid
 import net.yukh.xui.data.api.dto.ClientIpInfo
 import net.yukh.xui.data.api.dto.ClientModel
+import net.yukh.xui.data.api.dto.HAPP_SOURCE_TOO_LONG
 import net.yukh.xui.data.api.dto.InboundSlim
 import net.yukh.xui.data.api.dto.SubInfo
 import net.yukh.xui.data.json.string
@@ -59,6 +60,14 @@ data class ClientsUiState(
     val hwids: List<ClientHwid> = emptyList(),
     val hwidsLoading: Boolean = false,
     val hwidsUnsupported: Boolean = false,
+    /** The active panel is v3.8.0+: bulk HWID limit / ad tag and Happ links are offered. */
+    val panel380: Boolean = false,
+    // Encrypted Happ link in the share sheet (panel v3.8.0). happLinkEnabled stays
+    // null until the panel's switch has been read.
+    val happLinkEnabled: Boolean? = null,
+    val happLink: String? = null,
+    val happLinkLoading: Boolean = false,
+    val happLinkError: String? = null,
     val editor: ClientEditorState? = null,
 ) {
     /** Distinct non-empty client groups in use, sorted — for the editor picker
@@ -152,6 +161,9 @@ data class ClientEditorState(
     val secret: String = "",
     val adTag: String = "",
     val allowedIps: String = "",
+    /** PersistentKeepalive seconds for WireGuard/AmneziaWG peers. A new client gets 25,
+     *  like the panel's own form; 0 turns keepalives off. */
+    val keepAlive: String = "25",
     val selectedInboundIds: Set<Int> = emptySet(),
     val availableInbounds: List<InboundSlim> = emptyList(),
     val availableGroups: List<String> = emptyList(),
@@ -173,6 +185,11 @@ data class ClientEditorState(
     /** A selected inbound is WireGuard — show the peer's allowed IPs. */
     val isWireguard: Boolean
         get() = availableInbounds.any { it.id in selectedInboundIds && it.protocol == "wireguard" }
+
+    /** A selected inbound is TUIC — the panel can't enforce per-client traffic or IP
+     *  limits there (panel v3.8.0); the limit belongs on the inbound. */
+    val isTuic: Boolean
+        get() = availableInbounds.any { it.id in selectedInboundIds && it.protocol == "tuic" }
 }
 
 @HiltViewModel
@@ -233,6 +250,7 @@ class ClientsViewModel @Inject constructor(
         viewModelScope.launch {
             val clients = repo.listClients()
             val onlines = repo.listOnlines()
+            val panel380 = repo.isPanel380()
 
             clients
                 .onSuccess { list ->
@@ -256,6 +274,7 @@ class ClientsViewModel @Inject constructor(
                             items = sorted,
                             speedByClient = speeds,
                             online = onlines.getOrNull()?.toSet().orEmpty(),
+                            panel380 = panel380,
                             loading = false,
                             refreshing = false,
                             error = null,
@@ -281,6 +300,10 @@ class ClientsViewModel @Inject constructor(
                 selectedSubUrl = null,
                 subUrlChecked = false,
                 selectedSubInfo = null,
+                happLinkEnabled = null,
+                happLink = null,
+                happLinkLoading = false,
+                happLinkError = null,
             )
         }
         viewModelScope.launch {
@@ -306,6 +329,14 @@ class ClientsViewModel @Inject constructor(
                 _state.update { it.copy(selectedSubInfo = info) }
             }
         }
+        // Encrypted Happ link (panel v3.8.0): offered only once the panel's switch is known.
+        viewModelScope.launch {
+            if (!repo.isPanel380()) return@launch
+            val enabled = repo.happLinkEnabled().getOrNull() ?: return@launch
+            if (_state.value.selectedClientEmail == email) {
+                _state.update { it.copy(happLinkEnabled = enabled) }
+            }
+        }
     }
 
     fun closeShareSheet() {
@@ -318,7 +349,30 @@ class ClientsViewModel @Inject constructor(
                 selectedSubUrl = null,
                 subUrlChecked = false,
                 selectedSubInfo = null,
+                happLinkEnabled = null,
+                happLink = null,
+                happLinkLoading = false,
+                happLinkError = null,
             )
+        }
+    }
+
+    /** Ask the panel for an encrypted Happ link for the open client (panel v3.8.0).
+     *  The panel keeps nothing, so every press returns a fresh link. */
+    fun generateHappLink() {
+        val email = _state.value.selectedClientEmail ?: return
+        val client = _state.value.items.firstOrNull { it.email == email } ?: return
+        if (_state.value.happLinkLoading) return
+        _state.update { it.copy(happLinkLoading = true, happLinkError = null) }
+        viewModelScope.launch {
+            val r = repo.happLink(client.id)
+            if (_state.value.selectedClientEmail != email) return@launch
+            r.onSuccess { link -> _state.update { it.copy(happLink = link, happLinkLoading = false) } }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(happLinkLoading = false, happLinkError = e.message ?: "error")
+                    }
+                }
         }
     }
 
@@ -397,6 +451,7 @@ class ClientsViewModel @Inject constructor(
                     secret = client.secret,
                     adTag = client.adTag,
                     allowedIps = client.allowedIPs,
+                    keepAlive = client.keepAlive.toString(),
                     selectedInboundIds = client.inboundIds.toSet(),
                     availableGroups = existingGroups(),
                     inboundsLoading = true,
@@ -459,6 +514,7 @@ class ClientsViewModel @Inject constructor(
     fun setEditorExpiry(ms: Long) = updateEditor { it.copy(expiryTime = ms) }
     fun setEditorAdTag(v: String) = updateEditor { it.copy(adTag = v.filter { c -> c.isDigit() || c in 'a'..'f' || c in 'A'..'F' }.take(32)) }
     fun setEditorAllowedIps(v: String) = updateEditor { it.copy(allowedIps = v) }
+    fun setEditorKeepAlive(v: String) = updateEditor { it.copy(keepAlive = v.filter(Char::isDigit).take(5)) }
 
     /** Regenerate the MTProto FakeTLS secret, keeping the fronting domain from
      *  the current secret (or cloudflare's if there isn't one yet). Format:
@@ -503,6 +559,13 @@ class ClientsViewModel @Inject constructor(
                 e.allowedIps.split(",").map { it.trim() }.filter { it.isNotEmpty() }
             } else {
                 base.allowedIPs
+            },
+            // Sent whenever a tunnel inbound is selected: panel v3.8.0 treats an explicit
+            // 0 as "off" and a missing value as "keep", so other clients keep theirs.
+            keepAlive = if (e.isWireguard || e.isAmneziawg) {
+                (e.keepAlive.toIntOrNull() ?: 0).coerceIn(0, 65535)
+            } else {
+                base.keepAlive
             },
             // Mint the subscription id ourselves on create, in the panel's own
             // 16-char format. Sending it empty makes the panel fall back to a
@@ -612,8 +675,32 @@ class ClientsViewModel @Inject constructor(
         }
     }
 
-    fun bulkAdjust(addDays: Int, addBytes: Long, flow: String) =
-        runBulk("Adjusted") { repo.bulkAdjustClients(it, addDays, addBytes, flow) }
+    /** Bulk adjust with the panel's report: how many changed and, if any were skipped,
+     *  the first reason (e.g. an ad tag on a client without an MTProto inbound). */
+    fun bulkAdjust(addDays: Int, addBytes: Long, flow: String, limitHwid: Int? = null, adTag: String = "") {
+        val emails = _state.value.selectedEmails.toList()
+        if (emails.isEmpty() || _state.value.bulkInFlight) return
+        _state.update { it.copy(bulkInFlight = true) }
+        viewModelScope.launch {
+            repo.bulkAdjustClients(emails, addDays, addBytes, flow, limitHwid, adTag)
+                .onSuccess { report ->
+                    val skipped = report.skipped
+                    _state.update {
+                        it.copy(
+                            bulkInFlight = false,
+                            selectionMode = false,
+                            selectedEmails = emptySet(),
+                            transientMessage = if (skipped.isEmpty()) "Adjusted: ${report.adjusted}"
+                            else "Adjusted: ${report.adjusted}, skipped: ${skipped.size} (${skipped.first().reason})",
+                        )
+                    }
+                    load(force = true)
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(bulkInFlight = false, transientMessage = "Bulk action failed: ${e.message}") }
+                }
+        }
+    }
 
     fun bulkDelete() = runBulk("Deleted") { repo.bulkDeleteClients(it) }
 
