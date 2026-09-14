@@ -1,0 +1,1 @@
+Fixed: the client editor's expiry field no longer splits the form with large empty gaps once an expiry is set.

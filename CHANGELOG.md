@@ -6,6 +6,11 @@ uses [Semantic Versioning](https://semver.org/).
 
 🇷🇺 [Версия на русском](CHANGELOG.ru.md)
 
+## [0.12.3] — 2026-09-14
+
+### Fixed
+- **The expiry field in the client editor no longer tears the form apart once an expiry is set.** The "Never" and "Pick date & time" buttons shared one row with the date, squeezed its column to a sliver, and the text stretched into a tall strip with large empty gaps above and below it. The buttons now sit on their own line under the date; a client without an expiry looked right before and still does.
+
 ## [0.12.2] — 2026-09-07
 
 ### Added
