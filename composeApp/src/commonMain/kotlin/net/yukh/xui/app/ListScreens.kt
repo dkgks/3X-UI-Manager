@@ -130,6 +130,7 @@ fun ClientsListScreen(
     onExport: () -> Unit,
     onImport: () -> Unit,
     onDeleteOrphans: () -> Unit,
+    onGroups: () -> Unit = {},
     bulkBusy: Boolean = false,
     onBulkEnable: (List<String>) -> Unit = {},
     onBulkDisable: (List<String>) -> Unit = {},
@@ -193,6 +194,7 @@ fun ClientsListScreen(
                     Box {
                         TextButton(onClick = { menuOpen = true }) { Text("⋮") }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(text = { Text(tr("Groups")) }, onClick = { menuOpen = false; onGroups() })
                             DropdownMenuItem(text = { Text(tr("Export clients")) }, onClick = { menuOpen = false; onExport() })
                             DropdownMenuItem(text = { Text(tr("Import clients")) }, onClick = { menuOpen = false; onImport() })
                             DropdownMenuItem(text = { Text(tr("Delete unbound clients")) }, onClick = { menuOpen = false; onDeleteOrphans() })

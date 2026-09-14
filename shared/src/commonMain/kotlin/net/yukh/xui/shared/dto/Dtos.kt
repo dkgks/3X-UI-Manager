@@ -397,6 +397,39 @@ data class BulkAdjustRequest(
 @Serializable
 data class BulkDelRequest(val emails: List<String>, val keepTraffic: Boolean = false)
 
+/** Result of POST /panel/api/clients/bulkDel: how many went, and why the rest did not. */
+@Serializable
+data class BulkDeleteResult(val deleted: Int = 0, val skipped: List<BulkDeleteSkip> = emptyList())
+
+@Serializable
+data class BulkDeleteSkip(val email: String = "", val reason: String = "")
+
+// ---- Client groups (/panel/api/clients/groups…, panel v3.3.0+) ------------
+
+/** A group as GET /panel/api/clients/groups lists it — empty groups included.
+ *  [up]/[down] arrived in panel 3.3.1 (null on 3.3.0). The traffic counts from the
+ *  group's last reset; each client's own counters are separate. */
+@Serializable
+data class ClientGroup(
+    val name: String = "",
+    val clientCount: Int = 0,
+    val trafficUsed: Long = 0,
+    val up: Long? = null,
+    val down: Long? = null,
+)
+
+/** Body for POST /panel/api/clients/groups/create | delete | resetTraffic. */
+@Serializable
+data class GroupNameRequest(val name: String)
+
+/** Body for POST /panel/api/clients/groups/rename. */
+@Serializable
+data class GroupRenameRequest(val oldName: String, val newName: String)
+
+/** Body for POST /panel/api/clients/groups/bulkAdd — the panel creates [group] if missing. */
+@Serializable
+data class GroupAddClientsRequest(val emails: List<String>, val group: String)
+
 /** Body for POST /panel/api/clients/import — [data] is the stringified JSON array
  *  of {client, inboundIds} entries (the same shape GET /clients/export returns). */
 @Serializable

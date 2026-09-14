@@ -34,14 +34,19 @@ import net.yukh.xui.shared.dto.ApiToken
 import net.yukh.xui.shared.dto.ApiTokenScope
 import net.yukh.xui.shared.dto.BulkAdjustRequest
 import net.yukh.xui.shared.dto.BulkDelRequest
+import net.yukh.xui.shared.dto.BulkDeleteResult
 import net.yukh.xui.shared.dto.BulkEmailsRequest
 import net.yukh.xui.shared.dto.Client
+import net.yukh.xui.shared.dto.ClientGroup
 import net.yukh.xui.shared.dto.ClientHwid
 import net.yukh.xui.shared.dto.ClientCreatePayload
 import net.yukh.xui.shared.dto.ClientImportRequest
 import net.yukh.xui.shared.dto.ClientIpInfo
 import net.yukh.xui.shared.dto.ClientModel
 import net.yukh.xui.shared.dto.EnableRequest
+import net.yukh.xui.shared.dto.GroupAddClientsRequest
+import net.yukh.xui.shared.dto.GroupNameRequest
+import net.yukh.xui.shared.dto.GroupRenameRequest
 import net.yukh.xui.shared.dto.InboundIdsRequest
 import net.yukh.xui.shared.dto.InboundModel
 import net.yukh.xui.shared.dto.InboundSlim
@@ -210,6 +215,55 @@ class PanelApi(baseUrl: String, private val token: String, private val allowInse
     suspend fun bulkDelClients(req: BulkDelRequest): ApiAck =
         client.post("$base/panel/api/clients/bulkDel") {
             auth(); contentType(ContentType.Application.Json); setBody(req)
+        }.body()
+
+    /** The same delete as [bulkDelClients], read with the panel's {deleted, skipped[]} report. */
+    suspend fun bulkDelClientsWithReport(emails: List<String>): ApiResponse<BulkDeleteResult> =
+        client.post("$base/panel/api/clients/bulkDel") {
+            auth(); contentType(ContentType.Application.Json); setBody(BulkDelRequest(emails))
+        }.body()
+
+    // ---- Client groups (panel v3.3.0; per-group ↑/↓ 3.3.1, traffic reset 3.4.2) ----
+
+    suspend fun clientGroups(): ApiResponse<List<ClientGroup>> {
+        val resp = client.get("$base/panel/api/clients/groups") { auth() }
+        if (resp.status == HttpStatusCode.NotFound) throw PanelFeatureUnsupportedException()
+        return resp.body()
+    }
+
+    suspend fun createClientGroup(name: String): ApiAck =
+        client.post("$base/panel/api/clients/groups/create") {
+            auth(); contentType(ContentType.Application.Json); setBody(GroupNameRequest(name))
+        }.body()
+
+    suspend fun renameClientGroup(oldName: String, newName: String): ApiAck =
+        client.post("$base/panel/api/clients/groups/rename") {
+            auth(); contentType(ContentType.Application.Json); setBody(GroupRenameRequest(oldName, newName))
+        }.body()
+
+    /** Removes the group; its clients stay, just without a group. */
+    suspend fun deleteClientGroup(name: String): ApiAck =
+        client.post("$base/panel/api/clients/groups/delete") {
+            auth(); contentType(ContentType.Application.Json); setBody(GroupNameRequest(name))
+        }.body()
+
+    /** Zeroes the group's own counter; each client's traffic and quota stay as they are. */
+    suspend fun resetClientGroupTraffic(name: String): ApiAck {
+        val resp = client.post("$base/panel/api/clients/groups/resetTraffic") {
+            auth(); contentType(ContentType.Application.Json); setBody(GroupNameRequest(name))
+        }
+        if (resp.status == HttpStatusCode.NotFound) throw PanelFeatureUnsupportedException()
+        return resp.body()
+    }
+
+    suspend fun addClientsToGroup(emails: List<String>, group: String): ApiAck =
+        client.post("$base/panel/api/clients/groups/bulkAdd") {
+            auth(); contentType(ContentType.Application.Json); setBody(GroupAddClientsRequest(emails, group))
+        }.body()
+
+    suspend fun removeClientsFromGroup(emails: List<String>): ApiAck =
+        client.post("$base/panel/api/clients/groups/bulkRemove") {
+            auth(); contentType(ContentType.Application.Json); setBody(BulkEmailsRequest(emails))
         }.body()
 
     /** Remove clients not attached to any inbound. */

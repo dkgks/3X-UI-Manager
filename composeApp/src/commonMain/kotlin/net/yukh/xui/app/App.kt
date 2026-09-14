@@ -134,6 +134,10 @@ fun App() {
             var showMtls by remember { mutableStateOf(false) }
             var showAbout by remember { mutableStateOf(false) }
             var showOutboundSubs by remember { mutableStateOf(false) }
+            var showGroups by remember { mutableStateOf(false) }
+            // The panel's group names, read when the client editor opens: unlike the
+            // clients list they include groups nobody is in yet.
+            var panelGroupNames by remember { mutableStateOf<List<String>>(emptyList()) }
             var clientSubInfo by remember { mutableStateOf<SubInfo?>(null) }
             // Pre-sign-in settings, reached from the Connect screen's gear.
             var showConnectSettings by remember { mutableStateOf(false) }
@@ -598,11 +602,18 @@ fun App() {
                         onSettings = { showConnectSettings = true },
                     )
                 } else if (editingClient != null) {
+                    LaunchedEffect(Unit) {
+                        panelGroupNames = (try { api?.clientGroups()?.obj?.map { it.name } } catch (e: Throwable) { null }).orEmpty()
+                    }
                     ClientEditorScreen(
                         source = editingClient!!,
                         isNew = editingClientNew,
                         availableInbounds = inbounds,
-                        availableGroups = clients.mapNotNull { it.group.ifBlank { null } }.distinct().sorted(),
+                        availableGroups = (clients.map { it.group } + panelGroupNames)
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
+                            .distinct()
+                            .sortedBy { it.lowercase() },
                         saving = editorSaving,
                         error = editorError,
                         links = clientLinks,
@@ -916,6 +927,8 @@ fun App() {
                             null
                         },
                     )
+                } else if (showGroups && api != null) {
+                    GroupsScreen(api = api!!, lang = lang, onClose = { showGroups = false })
                 } else if (showOutboundSubs && api != null) {
                     OutboundSubsScreen(api = api!!, lang = lang, onClose = { showOutboundSubs = false })
                 } else if (showOutboundsX) {
@@ -1092,6 +1105,7 @@ fun App() {
                                             refreshAll()
                                         }
                                     },
+                                    onGroups = { showGroups = true },
                                     bulkBusy = bulkBusy,
                                     onBulkEnable = { emails ->
                                         scope.launch { bulkBusy = true; try { api?.bulkEnableClients(emails) } catch (e: Throwable) {}; bulkBusy = false; refreshAll() }
