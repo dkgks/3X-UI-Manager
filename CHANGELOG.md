@@ -6,6 +6,12 @@ uses [Semantic Versioning](https://semver.org/).
 
 🇷🇺 [Версия на русском](CHANGELOG.ru.md)
 
+## [0.13.1] — 2026-09-14
+
+### Added
+- **Client groups can now be managed from the app.** A client could already be put in a group, but the groups themselves were only reachable in the panel's web UI. The Clients screen's ⋮ menu now opens **Groups**: every group the panel has — empty ones included — with its client count and traffic (↑/↓ and total). From there a group can be created, renamed, given clients or emptied, have its traffic counter reset (each client keeps its own traffic and limits), or be deleted — either the group alone, leaving its clients without a group, or all of its clients, behind a separate confirmation. Resetting a group's traffic requires panel 3.4.2; the upload/download split requires 3.3.1.
+- **The client editor offers every group on the panel**, including groups nobody is in yet; before, it only suggested groups some client already used.
+
 ## [0.12.3] — 2026-09-14
 
 ### Fixed
