@@ -6,6 +6,24 @@ uses [Semantic Versioning](https://semver.org/).
 
 🇷🇺 [Версия на русском](CHANGELOG.ru.md)
 
+## [0.14.1] — 2026-09-15
+
+### Added
+- **Support for panel 3.8.0.** What the new panel version brings is offered only when the panel reports 3.8.0 or later; with older panels the app behaves as before.
+- **Keepalive for WireGuard and AmneziaWG clients.** The client editor has "Keepalive (seconds)" for clients on tunnel inbounds: a new client gets 25, like the panel's own form, and 0 turns keepalives off. Until now a client created from the app got no keepalive, so an idle peer stayed disconnected after a NAT timeout or a panel restart until its user sent traffic.
+- **Encrypted Happ link in the client's subscription card** (panel 3.8.0). When the operator allows encrypted subscription links on the panel, the client editor's subscription card creates a `happ://crypt5/…` link with its QR code; otherwise it says where that switch is.
+- **Bulk adjust sets the device limit and the MTProto ad tag** (panel 3.8.0) and reports how many clients changed and why any were skipped.
+- **The device list shows a short fingerprint** for every registered device (panel 3.8.0), so two similar phones can be told apart.
+- **AmneziaWG as an outbound protocol** (panel 3.8.0), with a ready settings skeleton. **Routing rules show their panel-only comment**, and on 3.8.0 it can be edited.
+- **TUIC v5 inbounds** (panel 3.8.0) open in the inbound editor without the transport, TLS/REALITY and sniffing sections that don't apply to them, and the client editor explains that per-client traffic and IP limits don't work on TUIC.
+
+### Changed
+- **Restoring a database on panel 3.8.0 waits out the panel's own restart.** The panel restarts itself a few seconds after an import; the app now says so and reports when the panel answers again instead of failing requests in the meantime. The restore confirmation also mentions that API tokens come from the backup.
+
+### Fixed
+- **A link too long for a QR code no longer breaks the client editor.** It shows a note in place of the code, and copy and share keep working.
+- **With panel 3.8.0, saving a client that isn't on a WireGuard or AmneziaWG inbound wrote a stray `keepAlive: 0` into its settings.** The app now leaves the field out for such clients.
+
 ## [0.13.1] — 2026-09-14
 
 ### Added
