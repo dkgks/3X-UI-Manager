@@ -7,6 +7,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -63,6 +65,7 @@ private const val GBC = 1_073_741_824.0
  *  + delete. Mirrors the Android client editor. The inbound multi-select shows for
  *  both new and existing clients; on save the caller reconciles the membership
  *  (attach the newly-checked inbounds, detach the unchecked ones). */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ClientEditorScreen(
     source: Client,
@@ -194,34 +197,36 @@ fun ClientEditorScreen(
             if (trafficReset == "monthly") {
                 CField(trafficResetDay, { trafficResetDay = it.filter(Char::isDigit).take(2) }, tr("Day"), KeyboardType.Number)
             }
-            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(tr("Expiry"), style = MaterialTheme.typography.labelMedium)
+            Column(Modifier.fillMaxWidth()) {
+                Text(tr("Expiry"), style = MaterialTheme.typography.labelMedium)
+                Text(
+                    if (expiryTime > 0) formatDateTime(expiryTime) else tr("Never"),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                if (expiryTime > 0) {
+                    // Whose clock this is, spelled out: the panel may well sit
+                    // in another zone than the device it is managed from.
                     Text(
-                        if (expiryTime > 0) formatDateTime(expiryTime) else tr("Never"),
-                        style = MaterialTheme.typography.bodyLarge,
+                        localZoneLabel(expiryTime) + " · " + tr("your phone"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (expiryTime > 0) {
-                        // Whose clock this is, spelled out: the panel may well sit
-                        // in another zone than the device it is managed from.
+                    formatDateTimeInZone(expiryTime, panelTimeZone)?.let { onPanel ->
                         Text(
-                            localZoneLabel(expiryTime) + " · " + tr("your phone"),
+                            tr("On the panel") + ": " + onPanel + " (" + panelTimeZone + ")",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        formatDateTimeInZone(expiryTime, panelTimeZone)?.let { onPanel ->
-                            Text(
-                                tr("On the panel") + ": " + onPanel + " (" + panelTimeZone + ")",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
                     }
                 }
-                if (expiryTime > 0) {
-                    OutlinedButton(onClick = { expiryTime = 0 }) { Text(tr("Never")) }
+                // Own line for the buttons: sharing a Row with this column squeezed it to a
+                // sliver once "Never" appeared, and the wrapped text blew the row up.
+                FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (expiryTime > 0) {
+                        OutlinedButton(onClick = { expiryTime = 0 }) { Text(tr("Never")) }
+                    }
+                    Button(onClick = { showDatePicker = true }) { Text(tr("Pick date & time")) }
                 }
-                Button(onClick = { showDatePicker = true }) { Text(tr("Pick date & time")) }
             }
             CField(limitHwid, { limitHwid = it.filter(Char::isDigit).take(4) }, tr("Device limit (0 = unlimited)"), KeyboardType.Number)
             if (!isNew) {
