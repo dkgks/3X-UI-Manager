@@ -1,0 +1,1 @@
+New: manage client groups from the Clients menu — create, rename, add or remove clients, reset a group's traffic, delete a group (its clients stay) or all of its clients. The client editor now offers every group on the panel, including empty ones.
