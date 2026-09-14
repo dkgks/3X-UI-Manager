@@ -258,35 +258,36 @@ fun ClientEditorScreen(
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(tr("Expiry"), style = MaterialTheme.typography.labelMedium)
-                    Text(state.expiryTime.formatDateTime(LocalAppLanguage.current), style = MaterialTheme.typography.bodyLarge)
-                    if (state.expiryTime > 0) {
-                        // Whose clock this is, spelled out: the panel may well sit in
-                        // another zone than the phone it is managed from.
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(tr("Expiry"), style = MaterialTheme.typography.labelMedium)
+                Text(state.expiryTime.formatDateTime(LocalAppLanguage.current), style = MaterialTheme.typography.bodyLarge)
+                if (state.expiryTime > 0) {
+                    // Whose clock this is, spelled out: the panel may well sit in
+                    // another zone than the phone it is managed from.
+                    Text(
+                        state.expiryTime.localZoneLabel() + " · " + tr("your phone"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    state.expiryTime.formatDateTimeInZone(state.panelTimeZone)?.let { onPanel ->
                         Text(
-                            state.expiryTime.localZoneLabel() + " · " + tr("your phone"),
+                            "${tr("On the panel")}: $onPanel (${state.panelTimeZone})",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        state.expiryTime.formatDateTimeInZone(state.panelTimeZone)?.let { onPanel ->
-                            Text(
-                                "${tr("On the panel")}: $onPanel (${state.panelTimeZone})",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
                     }
                 }
-                if (state.expiryTime != 0L) {
-                    OutlinedButton(onClick = { onExpiry(0) }) { Text(tr("Never")) }
+                // Own line for the buttons: sharing a Row with this column squeezed it to a
+                // sliver once "Never" appeared, and the wrapped text blew the row up.
+                FlowRow(
+                    modifier = Modifier.padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (state.expiryTime != 0L) {
+                        OutlinedButton(onClick = { onExpiry(0) }) { Text(tr("Never")) }
+                    }
+                    Button(onClick = { showDatePicker = true }) { Text(tr("Pick date & time")) }
                 }
-                Button(onClick = { showDatePicker = true }) { Text(tr("Pick date & time")) }
             }
 
             OutlinedTextField(
