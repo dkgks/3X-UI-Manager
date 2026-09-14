@@ -85,6 +85,7 @@ import net.yukh.xui.ui.format.formatLastOnline
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientsScreen(
+    onOpenGroups: () -> Unit = {},
     vm: ClientsViewModel = hiltViewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -195,6 +196,7 @@ fun ClientsScreen(
                                 Icon(Icons.Filled.MoreVert, contentDescription = tr("More"))
                             }
                             DropdownMenu(expanded = clientsMenu, onDismissRequest = { clientsMenu = false }) {
+                                DropdownMenuItem(text = { Text(tr("Groups")) }, onClick = { clientsMenu = false; onOpenGroups() })
                                 DropdownMenuItem(text = { Text(tr("Export clients")) }, onClick = { clientsMenu = false; vm.exportClients() })
                                 DropdownMenuItem(text = { Text(tr("Import clients")) }, onClick = { clientsMenu = false; showImportClients = true })
                                 DropdownMenuItem(text = { Text(tr("Delete unbound clients")) }, onClick = { clientsMenu = false; confirmDeleteOrphans = true })

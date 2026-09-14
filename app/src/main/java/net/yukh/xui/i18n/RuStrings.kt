@@ -485,6 +485,56 @@ val ruStrings: Map<String, String> = mapOf(
     "Removes every client not attached to any inbound, with their traffic and links. This can't be undone." to
         "Удаляет всех клиентов без привязки к inbound — вместе с их трафиком и ссылками. Отменить нельзя.",
 
+    // Client groups
+    "Groups" to "Группы",
+    "Client groups" to "Группы клиентов",
+    "Create group" to "Создать группу",
+    "Rename group" to "Переименовать группу",
+    "Group name" to "Имя группы",
+    "A group with this name already exists." to "Группа с таким именем уже есть.",
+    "No groups yet." to "Групп пока нет.",
+    "Create a group and add clients to it — or type a group name right in the client editor." to
+        "Создайте группу и добавьте в неё клиентов — или впишите группу прямо в редакторе клиента.",
+    "Add clients…" to "Добавить клиентов…",
+    "Remove clients…" to "Убрать клиентов…",
+    "Reset traffic" to "Сбросить трафик",
+    "Rename" to "Переименовать",
+    "Delete group" to "Удалить группу",
+    "Delete the group's clients" to "Удалить клиентов группы",
+    "Total" to "Всего",
+    "Reset the group's traffic?" to "Сбросить трафик группы?",
+    "Only the group's counter starts from zero. Each client keeps its own traffic and limits." to
+        "Счётчик группы начнётся с нуля. Трафик и лимиты самих клиентов не изменятся.",
+    "Delete the group?" to "Удалить группу?",
+    "The group disappears and its clients are left without a group. The clients themselves stay on the panel." to
+        "Группа исчезнет, а её клиенты останутся без группы. Сами клиенты из панели не удаляются.",
+    "Delete all clients of the group?" to "Удалить всех клиентов группы?",
+    "Every client of the group is deleted from the panel together with its traffic. This cannot be undone." to
+        "Все клиенты группы будут удалены из панели вместе с их трафиком. Отменить это нельзя.",
+    "Delete clients" to "Удалить клиентов",
+    "Add clients to group" to "Добавить клиентов в группу",
+    "Remove clients from group" to "Убрать клиентов из группы",
+    "Add to group" to "Добавить в группу",
+    "Remove from group" to "Убрать из группы",
+    "Clients already in this group are not listed. Their inbounds stay as they are — only the group changes." to
+        "Клиенты, которые уже в этой группе, здесь не показаны. Привязки к inbound'ам не меняются — меняется только группа.",
+    "The clients stay on the panel — they only leave the group." to
+        "Клиенты остаются в панели — они только выходят из группы.",
+    "Search clients" to "Поиск клиентов",
+    "No other clients to add." to "Других клиентов для добавления нет.",
+    "This group has no clients yet." to "В этой группе пока нет клиентов.",
+    "Couldn't load groups" to "Не удалось загрузить группы",
+    "Group created" to "Группа создана",
+    "Group renamed" to "Группа переименована",
+    "Group deleted, its clients kept" to "Группа удалена, клиенты сохранены",
+    "Group traffic reset" to "Трафик группы сброшен",
+    "Clients added to the group" to "Клиенты добавлены в группу",
+    "Clients removed from the group" to "Клиенты убраны из группы",
+    "Clients deleted" to "Удалено клиентов",
+    "Deleted / skipped" to "Удалено / пропущено",
+    "Action failed" to "Не удалось выполнить",
+    "Resetting a group's traffic" to "Сброс трафика группы",
+
     // Client editor (additional)
     "Email / name" to "Email / имя",
     "IP limit (0 = unlimited)" to "Лимит IP (0 = безлимит)",

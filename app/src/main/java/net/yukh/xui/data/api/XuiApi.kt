@@ -3,9 +3,14 @@ package net.yukh.xui.data.api
 import net.yukh.xui.data.api.dto.ApiAck
 import net.yukh.xui.data.api.dto.BulkAdjustRequest
 import net.yukh.xui.data.api.dto.BulkDelRequest
+import net.yukh.xui.data.api.dto.BulkDeleteResult
 import net.yukh.xui.data.api.dto.BulkEmailsRequest
+import net.yukh.xui.data.api.dto.ClientGroup
 import net.yukh.xui.data.api.dto.ClientImportRequest
 import net.yukh.xui.data.api.dto.ClientIpInfo
+import net.yukh.xui.data.api.dto.GroupAddClientsRequest
+import net.yukh.xui.data.api.dto.GroupNameRequest
+import net.yukh.xui.data.api.dto.GroupRenameRequest
 import net.yukh.xui.data.api.dto.VlessEncResponse
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -174,6 +179,32 @@ interface XuiApi {
 
     @POST("panel/api/clients/bulkDel")
     suspend fun bulkDeleteClients(@Body body: BulkDelRequest): ApiAck
+
+    // Same endpoint, read with the panel's {deleted, skipped[]} report.
+    @POST("panel/api/clients/bulkDel")
+    suspend fun bulkDeleteClientsWithReport(@Body body: BulkDelRequest): ApiResponse<BulkDeleteResult>
+
+    // Client groups (panel v3.3.0; resetTraffic v3.4.2). Deleting a group keeps its clients.
+    @GET("panel/api/clients/groups")
+    suspend fun listClientGroups(): ApiResponse<List<ClientGroup>>
+
+    @POST("panel/api/clients/groups/create")
+    suspend fun createClientGroup(@Body body: GroupNameRequest): ApiAck
+
+    @POST("panel/api/clients/groups/rename")
+    suspend fun renameClientGroup(@Body body: GroupRenameRequest): ApiAck
+
+    @POST("panel/api/clients/groups/delete")
+    suspend fun deleteClientGroup(@Body body: GroupNameRequest): ApiAck
+
+    @POST("panel/api/clients/groups/resetTraffic")
+    suspend fun resetClientGroupTraffic(@Body body: GroupNameRequest): ApiAck
+
+    @POST("panel/api/clients/groups/bulkAdd")
+    suspend fun addClientsToGroup(@Body body: GroupAddClientsRequest): ApiAck
+
+    @POST("panel/api/clients/groups/bulkRemove")
+    suspend fun removeClientsFromGroup(@Body body: BulkEmailsRequest): ApiAck
 
     // Export/import all clients + delete unbound (orphan) clients (panel v3.4.0).
     @GET("panel/api/clients/export")

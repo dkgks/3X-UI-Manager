@@ -23,9 +23,14 @@ import net.yukh.xui.data.api.dto.InboundSlim
 import net.yukh.xui.data.api.dto.Node
 import net.yukh.xui.data.api.dto.BulkAdjustRequest
 import net.yukh.xui.data.api.dto.BulkDelRequest
+import net.yukh.xui.data.api.dto.BulkDeleteResult
 import net.yukh.xui.data.api.dto.BulkEmailsRequest
+import net.yukh.xui.data.api.dto.ClientGroup
 import net.yukh.xui.data.api.dto.ClientImportRequest
 import net.yukh.xui.data.api.dto.ClientIpInfo
+import net.yukh.xui.data.api.dto.GroupAddClientsRequest
+import net.yukh.xui.data.api.dto.GroupNameRequest
+import net.yukh.xui.data.api.dto.GroupRenameRequest
 import net.yukh.xui.data.api.dto.MtlsTrustCaRequest
 import net.yukh.xui.data.api.dto.NodeIdsRequest
 import net.yukh.xui.data.api.dto.VlessEncAuth
@@ -340,6 +345,35 @@ class PanelRepository @Inject constructor(
 
     suspend fun bulkDeleteClients(emails: List<String>): Result<Unit> =
         authedAck { it.bulkDeleteClients(BulkDelRequest(emails)) }
+
+    /** The same delete as [bulkDeleteClients], keeping the panel's report of what it skipped. */
+    suspend fun deleteClientsWithReport(emails: List<String>): Result<BulkDeleteResult> =
+        authedData { it.bulkDeleteClientsWithReport(BulkDelRequest(emails)) }
+
+    // ---- Client groups (panel v3.3.0; per-group ↑/↓ 3.3.1, traffic reset 3.4.2) ----
+
+    suspend fun listClientGroups(): Result<List<ClientGroup>> =
+        authedData { it.listClientGroups() }
+
+    suspend fun createClientGroup(name: String): Result<Unit> =
+        authedAck { it.createClientGroup(GroupNameRequest(name)) }
+
+    suspend fun renameClientGroup(oldName: String, newName: String): Result<Unit> =
+        authedAck { it.renameClientGroup(GroupRenameRequest(oldName, newName)) }
+
+    /** Removes the group; its clients stay, just without a group. */
+    suspend fun deleteClientGroup(name: String): Result<Unit> =
+        authedAck { it.deleteClientGroup(GroupNameRequest(name)) }
+
+    /** Zeroes the group's own counter; each client's traffic and quota stay as they are. */
+    suspend fun resetClientGroupTraffic(name: String): Result<Unit> =
+        authedAck { it.resetClientGroupTraffic(GroupNameRequest(name)) }
+
+    suspend fun addClientsToGroup(emails: List<String>, group: String): Result<Unit> =
+        authedAck { it.addClientsToGroup(GroupAddClientsRequest(emails, group)) }
+
+    suspend fun removeClientsFromGroup(emails: List<String>): Result<Unit> =
+        authedAck { it.removeClientsFromGroup(BulkEmailsRequest(emails)) }
 
     /** Export all clients as a pretty `[{client, inboundIds}]` JSON string. */
     suspend fun exportClients(): Result<String> =

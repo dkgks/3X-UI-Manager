@@ -24,6 +24,13 @@ data class BulkAdjustRequest(
 @Serializable
 data class BulkDelRequest(val emails: List<String>, val keepTraffic: Boolean = false)
 
+/** Result of POST /panel/api/clients/bulkDel: how many went, and why the rest did not. */
+@Serializable
+data class BulkDeleteResult(val deleted: Int = 0, val skipped: List<BulkDeleteSkip> = emptyList())
+
+@Serializable
+data class BulkDeleteSkip(val email: String = "", val reason: String = "")
+
 /** Body for POST /panel/api/clients/import — [data] is the stringified JSON array
  *  of {client, inboundIds} entries (the same shape GET /clients/export returns). */
 @Serializable

@@ -353,6 +353,7 @@ class ClientsViewModel @Inject constructor(
             it.copy(editor = ClientEditorState(isNew = true, inboundsLoading = true, availableGroups = existingGroups()))
         }
         loadInboundsForEditor()
+        loadPanelGroupsForEditor()
         loadPanelTimeZone()
     }
 
@@ -403,6 +404,7 @@ class ClientsViewModel @Inject constructor(
             )
         }
         loadInboundsForEditor()
+        loadPanelGroupsForEditor()
         loadPanelTimeZone()
     }
 
@@ -412,6 +414,23 @@ class ClientsViewModel @Inject constructor(
             _state.update { s ->
                 s.editor?.let { e ->
                     s.copy(editor = e.copy(availableInbounds = inbounds, inboundsLoading = false))
+                } ?: s
+            }
+        }
+    }
+
+    /** The panel's own group list — unlike the clients on screen it also names groups
+     *  nobody is in yet. Best-effort: on failure the editor keeps the groups in use. */
+    private fun loadPanelGroupsForEditor() {
+        viewModelScope.launch {
+            val names = repo.listClientGroups().getOrNull()?.map { it.name.trim() } ?: return@launch
+            _state.update { s ->
+                s.editor?.let { e ->
+                    val merged = (e.availableGroups + names)
+                        .filter { it.isNotEmpty() }
+                        .distinct()
+                        .sortedBy { it.lowercase() }
+                    s.copy(editor = e.copy(availableGroups = merged))
                 } ?: s
             }
         }

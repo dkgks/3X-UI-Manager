@@ -72,6 +72,7 @@ import net.yukh.xui.ui.screen.clients.ClientsViewModel
 import net.yukh.xui.ui.screen.connect.ConnectScreen
 import net.yukh.xui.ui.screen.connect.ConnectViewModel
 import net.yukh.xui.ui.screen.dashboard.DashboardScreen
+import net.yukh.xui.ui.screen.groups.GroupsScreen
 import net.yukh.xui.ui.screen.inbounds.InboundEditorScreen
 import net.yukh.xui.ui.screen.inbounds.InboundsScreen
 import net.yukh.xui.ui.screen.inbounds.InboundsViewModel
@@ -140,6 +141,7 @@ fun MainScreen(
     var showAbout by rememberSaveable { mutableStateOf(false) }
     var showProfiles by rememberSaveable { mutableStateOf(false) }
     var showAddPanel by rememberSaveable { mutableStateOf(false) }
+    var showGroups by rememberSaveable { mutableStateOf(false) }
 
     // Shared Connect VM for the "add panel" overlay; cleared when opening so the
     // form starts blank (vs. the default which pre-fills the active profile).
@@ -308,7 +310,7 @@ fun MainScreen(
                 )
             }
             composable(MainTabs.Inbounds) { InboundsScreen(vm = inboundsVm) }
-            composable(MainTabs.Clients) { ClientsScreen(vm = clientsVm) }
+            composable(MainTabs.Clients) { ClientsScreen(onOpenGroups = { showGroups = true }, vm = clientsVm) }
             composable(MainTabs.Nodes) { NodesScreen(vm = nodesVm) }
         }
     }
@@ -380,6 +382,13 @@ fun MainScreen(
             onReloadCredential = nodesVm::reloadMtlsCredential,
             onClose = nodesVm::closeMtls,
         )
+    }
+
+    if (showGroups) {
+        // Group changes land on clients too, so the list behind refreshes right away.
+        val closeGroups = { showGroups = false; clientsVm.load(force = true) }
+        BackHandler(onBack = closeGroups)
+        GroupsScreen(onClose = closeGroups)
     }
 
     if (showXrayConfig) {
