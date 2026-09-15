@@ -6,6 +6,17 @@ uses [Semantic Versioning](https://semver.org/).
 
 🇷🇺 [Версия на русском](CHANGELOG.ru.md)
 
+## [0.14.2] — 2026-09-15
+
+### Added
+- **A group's card now lists its clients.** Tap a group on the Groups screen to see who is in it, with each client's traffic; tapping a client opens the same sheet as on the Clients screen.
+
+### Fixed
+- **An existing node's settings could not be saved.** The Save button wanted the node's API token, which the panel never sends back, so even renaming a node was impossible. Leaving the token field empty now keeps the node's current token, and the app no longer sends an empty token, which panel 3.8.0 would take as a new one.
+- **TUIC was missing from the protocol list of a new inbound** on panel 3.8.0. It is there now, with the panel's own default settings; the certificate and key paths still have to be filled in.
+- **A set inbound expiry no longer squeezes the date.** The Never and Pick date buttons sat beside the date and wrapped it over several lines; they now sit on their own line under it, as in the client editor.
+- **System Back in the outbound editor** closed the whole Outbounds screen and dropped the edits made so far; it now returns to the list, like the editor's own arrow.
+
 ## [0.14.1] — 2026-09-15
 
 ### Added
