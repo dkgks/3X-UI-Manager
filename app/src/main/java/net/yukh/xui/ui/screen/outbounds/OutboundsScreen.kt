@@ -112,7 +112,7 @@ fun OutboundsScreen(
             editing = editing,
             error = state.editorError,
             onDraftChange = vm::updateDraft,
-            onDone = vm::applyDraft,
+            onDone = vm::saveDraft,
             onCancel = vm::closeEditor,
             onDelete = if (!editing.isNew) ({ confirmDelete = true }) else null,
             protocols = if (state.panel380) OUTBOUND_PROTOCOLS + "amneziawg" else OUTBOUND_PROTOCOLS,

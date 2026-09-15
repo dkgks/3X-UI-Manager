@@ -118,6 +118,8 @@ fun RoutingScreen(onClose: () -> Unit, vm: RoutingViewModel = hiltViewModel()) {
     val cfg = state.config
     val rule = state.editingRule
     if (rule != null) {
+        // System Back leaves the editor; without this it closed the whole Routing screen.
+        androidx.activity.compose.BackHandler(onBack = vm::closeRule)
         RuleEditor(
             draft = rule.draft, isNew = rule.isNew, showComment = state.panel380,
             outboundTags = cfg.outboundTags() + state.subscriptionOutboundTags, balancerTags = cfg.tagList("balancers"),
@@ -130,12 +132,14 @@ fun RoutingScreen(onClose: () -> Unit, vm: RoutingViewModel = hiltViewModel()) {
                 if (rule.isNew) arr.add(clean) else arr[rule.index] = clean
                 vm.update(cfg.put("routing", routing.putArray("rules", arr)))
                 vm.closeRule()
+                vm.save()
             },
         )
         return
     }
     val bal = state.editingBalancer
     if (bal != null) {
+        androidx.activity.compose.BackHandler(onBack = vm::closeBalancer)
         BalancerEditor(
             draft = bal.draft, isNew = bal.isNew, outboundTags = cfg.outboundTags() + state.subscriptionOutboundTags,
             onChange = vm::updateBalDraft, onCancel = vm::closeBalancer,
@@ -145,6 +149,7 @@ fun RoutingScreen(onClose: () -> Unit, vm: RoutingViewModel = hiltViewModel()) {
                 if (bal.isNew) arr.add(bal.draft) else arr[bal.index] = bal.draft
                 vm.update(cfg.put("routing", routing.putArray("balancers", arr)))
                 vm.closeBalancer()
+                vm.save()
             },
         )
         return
@@ -411,7 +416,7 @@ private fun RuleEditor(
             TopAppBar(
                 title = { Text(if (isNew) tr("New rule") else tr("Edit rule")) },
                 navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Close")) } },
-                actions = { TextButton(onClick = onDone) { Text(tr("Done")) } },
+                actions = { TextButton(onClick = onDone) { Text(tr("Save")) } },
             )
         },
     ) { padding ->
@@ -453,7 +458,7 @@ private fun BalancerEditor(
             TopAppBar(
                 title = { Text(if (isNew) tr("New balancer") else tr("Edit balancer")) },
                 navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Close")) } },
-                actions = { TextButton(onClick = onDone) { Text(tr("Done")) } },
+                actions = { TextButton(onClick = onDone) { Text(tr("Save")) } },
             )
         },
     ) { padding ->

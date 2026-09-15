@@ -160,8 +160,8 @@ class OutboundsViewModel @Inject constructor(
         it.copy(editing = it.editing?.copy(draft = draft), editorError = null)
     }
 
-    /** Validate the draft and commit it to the local list; keeps editor open on error. */
-    fun applyDraft() {
+    /** Validate the draft, commit it to the list and save the config; keeps the editor open on error. */
+    fun saveDraft() {
         val st = _state.value
         val ed = st.editing ?: return
         val tag = ed.draft.outboundTag().trim()

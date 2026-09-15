@@ -113,6 +113,8 @@ fun DnsScreen(onClose: () -> Unit, vm: DnsViewModel = hiltViewModel()) {
 
     val editing = state.editingServer
     if (editing != null) {
+        // System Back leaves the editor; without this it closed the whole DNS screen.
+        androidx.activity.compose.BackHandler(onBack = vm::closeServer)
         DnsServerEditor(
             draft = editing.draft,
             isNew = editing.isNew,
@@ -126,6 +128,7 @@ fun DnsScreen(onClose: () -> Unit, vm: DnsViewModel = hiltViewModel()) {
                 if (editing.isNew) arr.add(el) else arr[editing.index] = el
                 vm.update(cfg.put("dns", dns.putArray("servers", arr)))
                 vm.closeServer()
+                vm.save()
             },
         )
         return
@@ -305,7 +308,7 @@ private fun DnsServerEditor(
             TopAppBar(
                 title = { Text(if (isNew) tr("New DNS server") else tr("Edit DNS server")) },
                 navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Close")) } },
-                actions = { TextButton(onClick = onDone) { Text(tr("Done")) } },
+                actions = { TextButton(onClick = onDone) { Text(tr("Save")) } },
             )
         },
     ) { padding ->

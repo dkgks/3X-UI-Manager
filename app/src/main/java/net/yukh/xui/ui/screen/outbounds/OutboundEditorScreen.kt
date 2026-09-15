@@ -92,6 +92,9 @@ fun OutboundEditorScreen(
 ) {
     val draft = editing.draft
     val protocol = draft.outboundProtocol()
+    // The error line sits above a long form; scroll up to it when Save is refused.
+    val scroll = rememberScrollState()
+    androidx.compose.runtime.LaunchedEffect(error) { if (error != null) scroll.animateScrollTo(0) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -101,7 +104,7 @@ fun OutboundEditorScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Close"))
                     }
                 },
-                actions = { TextButton(onClick = onDone) { Text(tr("Done")) } },
+                actions = { TextButton(onClick = onDone) { Text(tr("Save")) } },
             )
         },
         bottomBar = {
@@ -122,7 +125,7 @@ fun OutboundEditorScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scroll)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
