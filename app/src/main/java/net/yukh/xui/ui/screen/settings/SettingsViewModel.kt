@@ -37,4 +37,8 @@ class SettingsViewModel @Inject constructor(
     fun setAlertTrafficPct(pct: Int) = settings.setAlertTrafficPct(pct)
     fun alertPanelPort(): Int = settings.getAlertPanelPort()
     fun setAlertPanelPort(port: Int) = settings.setAlertPanelPort(port)
+
+    /** Self-update channel: "stable" (GitHub) or "testing" (home GitLab). */
+    fun updateChannel(): String = settings.getUpdateChannel()
+    fun setUpdateChannel(channel: String) = settings.setUpdateChannel(channel)
 }

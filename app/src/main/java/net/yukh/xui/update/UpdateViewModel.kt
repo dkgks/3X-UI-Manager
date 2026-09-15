@@ -56,11 +56,13 @@ class UpdateViewModel @Inject constructor(
         runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }
             .getOrNull() ?: "0"
 
+    private fun channel(): UpdateChannel = UpdateChannel.from(settings.getUpdateChannel())
+
     /** Swap the English release body for the changelog section in the UI language,
      *  and un-wrap its 80-col hard breaks so the dialog doesn't break mid-sentence. */
     private suspend fun localized(release: AppRelease): AppRelease {
         val russian = resolveLanguage(settings.getLanguage(), java.util.Locale.getDefault().language) == LANG_RU
-        val notes = UpdateChecker.localizedNotes(release.version, russian) ?: release.notes
+        val notes = UpdateChecker.localizedNotes(release.version, russian, channel()) ?: release.notes
         return release.copy(notes = UpdateChecker.reflowNotes(notes))
     }
 
@@ -72,7 +74,7 @@ class UpdateViewModel @Inject constructor(
         if (!BuildConfig.IN_APP_UPDATER) return
         if (_state.value != UpdateState.Idle) return
         viewModelScope.launch {
-            val rel = runCatching { UpdateChecker.latestIfNewer(currentVersion()) }.getOrNull()
+            val rel = runCatching { UpdateChecker.latestIfNewer(currentVersion(), channel()) }.getOrNull()
             if (rel != null) {
                 val localized = localized(rel)
                 _latestAvailable.value = localized
@@ -89,7 +91,7 @@ class UpdateViewModel @Inject constructor(
         if (!BuildConfig.IN_APP_UPDATER) return
         _state.value = UpdateState.Checking
         viewModelScope.launch {
-            val latest = runCatching { UpdateChecker.fetchLatest() }.getOrNull()
+            val latest = runCatching { UpdateChecker.fetchLatest(channel()) }.getOrNull()
             _state.value = when {
                 latest == null -> UpdateState.Error
                 UpdateChecker.isNewer(latest.version, currentVersion()) -> {

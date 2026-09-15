@@ -58,6 +58,7 @@ import net.yukh.xui.i18n.LANG_RU
 import net.yukh.xui.i18n.LANG_SYSTEM
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.security.BiometricAuth
+import net.yukh.xui.update.UpdateChannel
 import net.yukh.xui.work.AlertScheduler
 import androidx.compose.material3.OutlinedButton
 
@@ -84,6 +85,7 @@ fun SettingsScreen(
     var biometric by remember { mutableStateOf(vm.biometricEnabled()) }
     var showSetPasscode by remember { mutableStateOf(false) }
     var showAboutScreen by remember { mutableStateOf(false) }
+    var updateChannel by remember { mutableStateOf(vm.updateChannel()) }
     val biometricAvailable = remember { BiometricAuth.canAuthenticate(context) }
 
     var alerts by remember { mutableStateOf(vm.alertsEnabled()) }
@@ -152,6 +154,31 @@ fun SettingsScreen(
                     HorizontalDivider()
                     LanguageRow(tr("Bits (Kbit/s)"), selected = speedInBits) { vm.setSpeedInBits(true) }
                 }
+            }
+
+            // ---- Update channel (only where the in-app updater exists; the
+            // F-Droid flavor gets updates from the catalog). ----
+            if (BuildConfig.IN_APP_UPDATER) {
+                Text(tr("Updates"), style = MaterialTheme.typography.titleMedium)
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        LanguageRow(tr("Stable"), selected = updateChannel != UpdateChannel.TESTING_KEY) {
+                            updateChannel = UpdateChannel.STABLE_KEY
+                            vm.setUpdateChannel(UpdateChannel.STABLE_KEY)
+                        }
+                        HorizontalDivider()
+                        LanguageRow(tr("Testing (home server)"), selected = updateChannel == UpdateChannel.TESTING_KEY) {
+                            updateChannel = UpdateChannel.TESTING_KEY
+                            vm.setUpdateChannel(UpdateChannel.TESTING_KEY)
+                        }
+                    }
+                }
+                Text(
+                    tr("Stable updates come from GitHub. Testing updates come from the home server and are only reachable on its network — for pre-release builds."),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
             }
 
             // ---- App lock (hidden before sign-in; the lock guards the panel UI) ----
