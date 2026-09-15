@@ -52,7 +52,7 @@ import net.yukh.xui.i18n.tr
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutScreen(onClose: () -> Unit, onCheckUpdates: () -> Unit = {}) {
+fun AboutScreen(onClose: () -> Unit) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     var showChangelog by remember { mutableStateOf(false) }
@@ -105,13 +105,10 @@ fun AboutScreen(onClose: () -> Unit, onCheckUpdates: () -> Unit = {}) {
                         },
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    // The GitLab (standard) build self-updates; the F-Droid build can't
-                    // (F-Droid owns updates), so it shows where updates come from instead.
-                    if (BuildConfig.IN_APP_UPDATER) {
-                        OutlinedButton(onClick = onCheckUpdates, modifier = Modifier.fillMaxWidth()) {
-                            Text(tr("Check for updates"))
-                        }
-                    } else {
+                    // Checking for updates + the channel picker live in Settings; the
+                    // F-Droid build can't self-update (F-Droid owns updates), so it just
+                    // says where updates come from.
+                    if (!BuildConfig.IN_APP_UPDATER) {
                         Text(
                             tr("Installed from F-Droid — updates come through the F-Droid catalog."),
                             style = MaterialTheme.typography.bodySmall,

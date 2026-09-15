@@ -9,7 +9,7 @@ uses [Semantic Versioning](https://semver.org/).
 ## [0.14.3] — 2026-09-15
 
 ### Added
-- **Update channel picker in Settings.** The in-app updater now offers a Stable channel (updates from GitHub, reachable anywhere — the default) and a Testing channel (updates from the home server, on its network only) for trying a build before it is published.
+- **Update channel in Settings.** The in-app updater now offers a Stable channel (the tested public releases — the default) and an Experimental channel (pre-release builds as soon as they are made, which can be unstable) for trying a build early.
 
 ### Fixed
 - **Changes in the outbound, routing and DNS editors could not be saved.** These editors (an outbound, a routing rule, a balancer, a DNS server) only had "Done", which staged the change into the list while the screen's Save stayed grey until it was pressed; leaving with the arrow or system Back dropped the change, and Back even closed the whole screen. They now have "Save", which writes the change to the panel at once, and system Back returns to the list. An outbound with an empty or duplicate tag scrolls the form up to the message.

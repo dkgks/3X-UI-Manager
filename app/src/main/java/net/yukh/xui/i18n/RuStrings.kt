@@ -207,11 +207,11 @@ val ruStrings: Map<String, String> = mapOf(
     "Speed units" to "Единицы скорости",
     "Bytes (KB/s)" to "Байты (КБ/с)",
     "Bits (Kbit/s)" to "Биты (Кбит/с)",
-    "Updates" to "Обновления",
+    "Update channel" to "Канал обновлений",
     "Stable" to "Стабильный",
-    "Testing (home server)" to "Тестовый (домашний сервер)",
-    "Stable updates come from GitHub. Testing updates come from the home server and are only reachable on its network — for pre-release builds." to
-        "Стабильные обновления приходят с GitHub. Тестовые — с домашнего сервера и доступны только в его сети, для предрелизных сборок.",
+    "Experimental" to "Экспериментальный",
+    "Stable installs the tested public releases. Experimental installs pre-release builds as soon as they are made and can be unstable." to
+        "Стабильный — проверенные публичные релизы. Экспериментальный — предрелизные сборки сразу после выпуска, могут быть нестабильны.",
     "WireGuard allowed IPs" to "Разрешённые IP WireGuard",
     "Comma-separated; leave empty to auto-assign." to "Через запятую; пусто — назначить автоматически.",
     "Test" to "Тест",

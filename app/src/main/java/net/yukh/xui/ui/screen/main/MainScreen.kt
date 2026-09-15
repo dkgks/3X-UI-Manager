@@ -440,7 +440,7 @@ fun MainScreen(
 
     if (showAbout) {
         BackHandler(onBack = { showAbout = false })
-        AboutScreen(onClose = { showAbout = false }, onCheckUpdates = { updateVm.checkNow() })
+        AboutScreen(onClose = { showAbout = false })
     }
 
     UpdateDialogHost(updateVm)

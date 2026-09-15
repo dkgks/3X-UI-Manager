@@ -159,7 +159,7 @@ fun SettingsScreen(
             // ---- Update channel (only where the in-app updater exists; the
             // F-Droid flavor gets updates from the catalog). ----
             if (BuildConfig.IN_APP_UPDATER) {
-                Text(tr("Updates"), style = MaterialTheme.typography.titleMedium)
+                Text(tr("Update channel"), style = MaterialTheme.typography.titleMedium)
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column {
                         LanguageRow(tr("Stable"), selected = updateChannel != UpdateChannel.TESTING_KEY) {
@@ -167,18 +167,21 @@ fun SettingsScreen(
                             vm.setUpdateChannel(UpdateChannel.STABLE_KEY)
                         }
                         HorizontalDivider()
-                        LanguageRow(tr("Testing (home server)"), selected = updateChannel == UpdateChannel.TESTING_KEY) {
+                        LanguageRow(tr("Experimental"), selected = updateChannel == UpdateChannel.TESTING_KEY) {
                             updateChannel = UpdateChannel.TESTING_KEY
                             vm.setUpdateChannel(UpdateChannel.TESTING_KEY)
                         }
                     }
                 }
                 Text(
-                    tr("Stable updates come from GitHub. Testing updates come from the home server and are only reachable on its network — for pre-release builds."),
+                    tr("Stable installs the tested public releases. Experimental installs pre-release builds as soon as they are made and can be unstable."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 4.dp),
                 )
+                OutlinedButton(onClick = onCheckUpdates, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Check for updates"))
+                }
             }
 
             // ---- App lock (hidden before sign-in; the lock guards the panel UI) ----
@@ -338,7 +341,7 @@ fun SettingsScreen(
 
     if (showAboutScreen) {
         BackHandler(onBack = { showAboutScreen = false })
-        AboutScreen(onClose = { showAboutScreen = false }, onCheckUpdates = onCheckUpdates)
+        AboutScreen(onClose = { showAboutScreen = false })
     }
 
     if (showSetPasscode) {
