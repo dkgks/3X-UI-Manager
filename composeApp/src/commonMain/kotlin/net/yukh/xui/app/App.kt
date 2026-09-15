@@ -851,6 +851,7 @@ fun App() {
                     InboundEditorScreen(
                         initial = editingInbound!!,
                         isNew = editingInboundNew,
+                        panel380 = panel380,
                         saving = editorSaving,
                         error = editorError,
                         vlessEncAuths = vlessEncAuths,
@@ -1001,7 +1002,13 @@ fun App() {
                         panel380 = panel380,
                     )
                 } else if (showGroups && api != null) {
-                    GroupsScreen(api = api!!, lang = lang, onClose = { showGroups = false })
+                    GroupsScreen(
+                        api = api!!,
+                        lang = lang,
+                        onClose = { showGroups = false },
+                        // The client editor branch comes first, so closing it returns to the groups.
+                        onOpenClient = { c -> editorError = null; clientLinks = emptyList(); clientSubUrl = null; clientIps = emptyList(); clearClientHappLink(); editingClientNew = false; editingClient = c },
+                    )
                 } else if (showOutboundSubs && api != null) {
                     OutboundSubsScreen(api = api!!, lang = lang, onClose = { showOutboundSubs = false })
                 } else if (showOutboundsX) {

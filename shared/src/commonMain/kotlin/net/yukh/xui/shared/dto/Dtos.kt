@@ -343,7 +343,8 @@ data class Node(
 
     fun toModel(): NodeModel = NodeModel(
         id = id, name = name, remark = remark, scheme = scheme, address = address,
-        port = port, basePath = basePath, apiToken = apiToken, enable = enable,
+        // The panel never returns a node's token, so an edit leaves the stored one alone.
+        port = port, basePath = basePath, apiToken = apiToken.ifBlank { null }, enable = enable,
         allowPrivateAddress = allowPrivateAddress, tlsVerifyMode = tlsVerifyMode,
         pinnedCertSha256 = pinnedCertSha256, outboundTag = outboundTag,
     )
@@ -358,7 +359,9 @@ data class NodeModel(
     val address: String = "",
     val port: Int = 443,
     val basePath: String = "/",
-    val apiToken: String = "",
+    /** Null on an edit keeps the node's stored token (the key is left out): panel 3.8.0
+     *  reads a present empty string as a new, empty token. */
+    val apiToken: String? = null,
     val enable: Boolean = true,
     val allowPrivateAddress: Boolean = false,
     val tlsVerifyMode: String = "verify",

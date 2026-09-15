@@ -51,7 +51,7 @@ fun NodeEditorScreen(
     var address by remember { mutableStateOf(initial.address) }
     var port by remember { mutableStateOf(if (initial.port > 0) initial.port.toString() else "") }
     var basePath by remember { mutableStateOf(initial.basePath) }
-    var apiToken by remember { mutableStateOf(initial.apiToken) }
+    var apiToken by remember { mutableStateOf(initial.apiToken.orEmpty()) }
     var enable by remember { mutableStateOf(initial.enable) }
     var allowPrivate by remember { mutableStateOf(initial.allowPrivateAddress) }
     var tlsMode by remember { mutableStateOf(initial.tlsVerifyMode.ifBlank { "verify" }) }
@@ -60,12 +60,14 @@ fun NodeEditorScreen(
     // mTLS authenticates the panel→node link with a client cert, so the API
     // token is optional in that mode (matches the Android editor).
     val canSave = !saving && name.isNotBlank() && address.isNotBlank() &&
-        (port.toIntOrNull() ?: 0) in 1..65535 && (apiToken.isNotBlank() || tlsMode == "mtls")
+        (port.toIntOrNull() ?: 0) in 1..65535 &&
+        // An existing node keeps its stored token when the field is left empty.
+        (apiToken.isNotBlank() || tlsMode == "mtls" || !isNew)
 
     fun build() = initial.copy(
         name = name.trim(), remark = remark.trim(), scheme = scheme, address = address.trim(),
         port = port.toIntOrNull() ?: 443, basePath = basePath.trim().ifBlank { "/" },
-        apiToken = apiToken.trim(), enable = enable, allowPrivateAddress = allowPrivate,
+        apiToken = apiToken.trim().ifBlank { null }, enable = enable, allowPrivateAddress = allowPrivate,
         tlsVerifyMode = tlsMode,
         outboundTag = outboundTag.trim(),
     )
@@ -103,6 +105,13 @@ fun NodeEditorScreen(
             Field(port, { port = it.filter(Char::isDigit) }, tr("Port"), KeyboardType.Number)
             Field(basePath, { basePath = it }, tr("Base path"))
             Field(apiToken, { apiToken = it }, tr("API token"))
+            if (!isNew) {
+                Text(
+                    tr("Leave empty to keep the node's current token."),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             // Route the panel→node API link through this Xray outbound tag
             // (empty = direct). Panel v3.4.0.
             Field(outboundTag, { outboundTag = it }, tr("Route via outbound tag (optional)"))

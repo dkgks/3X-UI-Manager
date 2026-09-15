@@ -81,6 +81,8 @@ fun InboundEditorScreen(
     monitored: Boolean = false,
     showMonitor: Boolean = false,
     onMonitoredChange: (Boolean) -> Unit = {},
+    /** Panel v3.8.0+: a new inbound may also be TUIC. */
+    panel380: Boolean = false,
     onSave: (InboundModel) -> Unit,
     onDelete: () -> Unit,
     onCancel: () -> Unit,
@@ -125,7 +127,7 @@ fun InboundEditorScreen(
 
             if (isNew) {
                 Text(tr("Protocol"), style = MaterialTheme.typography.labelMedium)
-                Chips(InboundTemplates.PROTOCOLS, protocol) { p ->
+                Chips(InboundTemplates.protocols(panel380), protocol) { p ->
                     protocol = p
                     settingsJson = InboundTemplates.settings(p)
                     streamJson = InboundTemplates.streamSettings(p)

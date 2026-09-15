@@ -71,7 +71,7 @@ private sealed interface GroupConfirm {
  * outbound subscriptions screen this one offers no restart.
  */
 @Composable
-fun GroupsScreen(api: PanelApi, lang: String, onClose: () -> Unit) {
+fun GroupsScreen(api: PanelApi, lang: String, onClose: () -> Unit, onOpenClient: (Client) -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var loading by remember { mutableStateOf(true) }
     var unsupported by remember { mutableStateOf(false) }
@@ -87,6 +87,8 @@ fun GroupsScreen(api: PanelApi, lang: String, onClose: () -> Unit) {
     var pickerClients by remember { mutableStateOf<List<Client>?>(null) }
     var pickerSelected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pickerQuery by remember { mutableStateOf("") }
+    // Each group's members by group name, for the expandable list on its card.
+    var members by remember { mutableStateOf<Map<String, List<Client>>>(emptyMap()) }
 
     fun failed(detail: String) {
         error = "${tr(lang, "Action failed")}: $detail"
@@ -98,6 +100,11 @@ fun GroupsScreen(api: PanelApi, lang: String, onClose: () -> Unit) {
             if (r.success) {
                 groups = r.obj.orEmpty()
                 unsupported = false
+                // Members are best-effort: without them the cards still show counts and traffic.
+                members = runCatching { api.clients().obj.orEmpty() }.getOrDefault(emptyList())
+                    .filter { it.group.isNotBlank() }
+                    .groupBy { it.group.trim() }
+                    .mapValues { (_, clients) -> clients.sortedBy { it.email.lowercase() } }
             } else {
                 error = "${tr(lang, "Couldn't load groups")}: ${r.msg}"
             }
@@ -321,7 +328,9 @@ fun GroupsScreen(api: PanelApi, lang: String, onClose: () -> Unit) {
                         items(groups, key = { it.name }) { group ->
                             GroupCard(
                                 group = group,
+                                members = members[group.name].orEmpty(),
                                 busy = busy,
+                                onOpenClient = onOpenClient,
                                 onAddClients = { openPicker(group.name, adding = true) },
                                 onRemoveClients = { openPicker(group.name, adding = false) },
                                 onResetTraffic = { confirm = GroupConfirm.ResetTraffic(group) },
@@ -419,7 +428,9 @@ fun GroupsScreen(api: PanelApi, lang: String, onClose: () -> Unit) {
 @Composable
 private fun GroupCard(
     group: ClientGroup,
+    members: List<Client>,
     busy: Boolean,
+    onOpenClient: (Client) -> Unit,
     onAddClients: () -> Unit,
     onRemoveClients: () -> Unit,
     onResetTraffic: () -> Unit,
@@ -428,9 +439,10 @@ private fun GroupCard(
     onDeleteClients: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
+    var expanded by remember(group.name) { mutableStateOf(false) }
     val hasClients = group.clientCount > 0
     val danger = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error)
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }) {
         Column(
             Modifier.padding(start = 12.dp, top = 4.dp, end = 4.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -443,6 +455,7 @@ private fun GroupCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                Text(if (expanded) "▴" else "▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Box {
                     TextButton(onClick = { menu = true }, enabled = !busy) { Text("⋮") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -486,6 +499,33 @@ private fun GroupCard(
                 if (up != null && down != null) "↑ ${up.formatBytes()}   ↓ ${down.formatBytes()}   ·   $total" else total,
                 style = MaterialTheme.typography.labelMedium,
             )
+            if (expanded) {
+                HorizontalDivider(Modifier.padding(top = 4.dp, end = 8.dp))
+                if (members.isEmpty()) {
+                    Text(
+                        tr("This group has no clients yet."),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 6.dp),
+                    )
+                }
+                // A tap opens the client just like on the Clients screen.
+                members.forEach { c ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenClient(c) }
+                            .padding(end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    ) {
+                        Text(c.email, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "↑ ${c.up.formatBytes()}   ↓ ${c.down.formatBytes()}" + if (!c.enable) "   ·   ${tr("disabled")}" else "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
     }
 }

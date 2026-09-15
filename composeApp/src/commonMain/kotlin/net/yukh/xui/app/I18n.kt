@@ -220,6 +220,7 @@ val ruStrings: Map<String, String> = mapOf(
     "The app will forget its saved URL and token." to "Приложение забудет сохранённые URL и токен.",
     "Panel URL" to "URL панели",
     "API token" to "API-токен",
+    "Leave empty to keep the node's current token." to "Оставьте пустым, чтобы сохранить текущий токен узла.",
     "Connect" to "Подключиться",
     "Connecting…" to "Подключение…",
     "Allow self-signed TLS" to "Разрешить самоподписанный TLS",

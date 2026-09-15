@@ -10,6 +10,9 @@ import kotlinx.serialization.json.JsonElement
  */
 object InboundTemplates {
     val PROTOCOLS = listOf("vless", "vmess", "trojan", "shadowsocks", "socks", "http")
+
+    /** The protocols a new inbound can take on this panel: TUIC arrived in panel 3.8.0. */
+    fun protocols(panel380: Boolean): List<String> = if (panel380) PROTOCOLS + "tuic" else PROTOCOLS
     val TRAFFIC_RESET = listOf("never", "hourly", "daily", "weekly", "monthly")
 
     fun settings(protocol: String): String = when (protocol) {
@@ -19,6 +22,9 @@ object InboundTemplates {
         "shadowsocks" -> "{\n  \"method\": \"2022-blake3-aes-256-gcm\",\n  \"password\": \"\",\n  \"network\": \"tcp,udp\",\n  \"clients\": []\n}"
         "socks" -> "{\n  \"auth\": \"password\",\n  \"accounts\": [],\n  \"udp\": true\n}"
         "http" -> "{\n  \"accounts\": []\n}"
+        // Panel 3.8.0 serves TUIC from its own tuic-server process. These are the web
+        // form's defaults; the certificate and key paths must be filled in before use.
+        "tuic" -> "{\n  \"server\": {\n    \"certificate\": \"\",\n    \"private_key\": \"\",\n    \"congestion_control\": \"bbr\",\n    \"alpn\": [\"h3\", \"spdy/3.1\"],\n    \"udp_relay_mode\": \"native\",\n    \"zero_rtt_handshake\": true,\n    \"log_level\": \"info\",\n    \"max_idle_time\": 15,\n    \"authentication_timeout\": 3,\n    \"max_udp_relay_packet_size\": 1500,\n    \"sni\": \"\"\n  },\n  \"clients\": []\n}"
         else -> "{}"
     }
 
