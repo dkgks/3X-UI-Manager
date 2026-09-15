@@ -1,0 +1,1 @@
+Fixed: existing nodes save again without re-entering the API token (an empty field keeps it); TUIC is offered for new inbounds on panel 3.8.0; the inbound expiry buttons no longer squeeze the date; Back in the outbound editor returns to the list. New: a group's card lists its clients, and tapping one opens its sheet.
