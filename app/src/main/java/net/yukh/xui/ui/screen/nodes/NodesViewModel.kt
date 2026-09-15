@@ -64,7 +64,8 @@ data class NodeEditorState(
     val canSave: Boolean
         get() = !saving && name.isNotBlank() && address.isNotBlank() &&
             (port.toIntOrNull() ?: 0) in 1..65535 &&
-            (apiToken.isNotBlank() || tlsVerifyMode == "mtls")
+            // An existing node keeps its stored token when the field is left empty.
+            (apiToken.isNotBlank() || tlsVerifyMode == "mtls" || !isNew)
 }
 
 @HiltViewModel
@@ -231,7 +232,7 @@ class NodesViewModel @Inject constructor(
             address = e.address.trim(),
             port = e.port.toIntOrNull() ?: 443,
             basePath = e.basePath.trim().ifBlank { "/" },
-            apiToken = e.apiToken.trim(),
+            apiToken = e.apiToken.trim().ifBlank { null },
             enable = e.enable,
             allowPrivateAddress = e.allowPrivateAddress,
             tlsVerifyMode = e.tlsVerifyMode,

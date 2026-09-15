@@ -177,7 +177,13 @@ fun NodeEditorScreen(
                 label = { Text(tr("API token")) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                supportingText = { Text(tr("From the node panel: Settings → Security → API Token")) },
+                supportingText = {
+                    Text(
+                        if (state.isNew) tr("From the node panel: Settings → Security → API Token")
+                        else tr("Leave empty to keep the node's current token.") + " " +
+                            tr("From the node panel: Settings → Security → API Token"),
+                    )
+                },
             )
 
             SchemeDropdown(

@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -76,7 +78,7 @@ private val SECURITIES = listOf("none", "tls", "reality")
 private val FINGERPRINTS = listOf("chrome", "firefox", "safari", "ios", "android", "edge", "random", "randomized")
 private val SNIFF_TARGETS = listOf("http", "tls", "quic", "fakedns")
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun InboundEditorScreen(
     state: InboundEditorState,
@@ -185,7 +187,7 @@ fun InboundEditorScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            LabeledDropdown(tr("Protocol"), state.protocol, InboundTemplates.PROTOCOLS, state.isNew, vm::setEditorProtocol)
+            LabeledDropdown(tr("Protocol"), state.protocol, InboundTemplates.protocols(state.panel380), state.isNew, vm::setEditorProtocol)
 
             HorizontalDivider()
 
@@ -207,19 +209,17 @@ fun InboundEditorScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(tr("Expiry"), style = MaterialTheme.typography.labelMedium)
-                    Text(state.expiryTime.formatDate(LocalAppLanguage.current), style = MaterialTheme.typography.bodyLarge)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(tr("Expiry"), style = MaterialTheme.typography.labelMedium)
+                Text(state.expiryTime.formatDate(LocalAppLanguage.current), style = MaterialTheme.typography.bodyLarge)
+                // Buttons on their own line, as in the client editor: beside the date they
+                // squeezed its column and wrapped the text over several lines.
+                FlowRow(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (state.expiryTime != 0L) {
+                        OutlinedButton(onClick = { vm.setEditorExpiry(0) }) { Text(tr("Never")) }
+                    }
+                    androidx.compose.material3.Button(onClick = { showDatePicker = true }) { Text(tr("Pick date")) }
                 }
-                if (state.expiryTime != 0L) {
-                    OutlinedButton(onClick = { vm.setEditorExpiry(0) }) { Text(tr("Never")) }
-                }
-                androidx.compose.material3.Button(onClick = { showDatePicker = true }) { Text(tr("Pick date")) }
             }
 
             HorizontalDivider()

@@ -323,6 +323,14 @@ fun MainScreen(
         InboundEditorScreen(state = editor, vm = inboundsVm)
     }
 
+    if (showGroups) {
+        // Group changes land on clients too, so the list behind refreshes right away.
+        val closeGroups = { showGroups = false; clientsVm.load(force = true) }
+        BackHandler(onBack = closeGroups)
+        // Drawn before the client editor, so an editor opened from a member's sheet sits on top.
+        GroupsScreen(onClose = closeGroups, onOpenClient = clientsVm::openShareSheet)
+    }
+
     clientsState.editor?.let { editor ->
         BackHandler(onBack = clientsVm::closeEditor)
         ClientEditorScreen(
@@ -383,13 +391,6 @@ fun MainScreen(
             onReloadCredential = nodesVm::reloadMtlsCredential,
             onClose = nodesVm::closeMtls,
         )
-    }
-
-    if (showGroups) {
-        // Group changes land on clients too, so the list behind refreshes right away.
-        val closeGroups = { showGroups = false; clientsVm.load(force = true) }
-        BackHandler(onBack = closeGroups)
-        GroupsScreen(onClose = closeGroups)
     }
 
     if (showXrayConfig) {

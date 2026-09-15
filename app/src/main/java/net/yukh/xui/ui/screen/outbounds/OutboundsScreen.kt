@@ -104,6 +104,9 @@ fun OutboundsScreen(
     // --- Editor overlay ---
     val editing = state.editing
     if (editing != null) {
+        // System back leaves the editor like its arrow does; it used to close the whole
+        // Outbounds screen and drop every edit made so far.
+        BackHandler(onBack = vm::closeEditor)
         var confirmDelete by remember { mutableStateOf(false) }
         OutboundEditorScreen(
             editing = editing,

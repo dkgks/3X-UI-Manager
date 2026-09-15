@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -52,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.yukh.xui.data.api.dto.Client
 import net.yukh.xui.data.api.dto.ClientGroup
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.ui.components.PanelFeatureUnsupported
@@ -84,7 +88,11 @@ private sealed interface GroupConfirm {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GroupsScreen(onClose: () -> Unit, vm: GroupsViewModel = hiltViewModel()) {
+fun GroupsScreen(
+    onClose: () -> Unit,
+    onOpenClient: (String) -> Unit = {},
+    vm: GroupsViewModel = hiltViewModel(),
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var nameDialog by remember { mutableStateOf<NameDialog?>(null) }
@@ -163,7 +171,9 @@ fun GroupsScreen(onClose: () -> Unit, vm: GroupsViewModel = hiltViewModel()) {
                         items(state.groups, key = { it.name }) { group ->
                             GroupCard(
                                 group = group,
+                                members = state.members[group.name].orEmpty(),
                                 busy = state.busy,
+                                onOpenClient = onOpenClient,
                                 onAddClients = { vm.openPicker(group.name, adding = true) },
                                 onRemoveClients = { vm.openPicker(group.name, adding = false) },
                                 onResetTraffic = { confirm = GroupConfirm.ResetTraffic(group) },
@@ -264,7 +274,9 @@ fun GroupsScreen(onClose: () -> Unit, vm: GroupsViewModel = hiltViewModel()) {
 @Composable
 private fun GroupCard(
     group: ClientGroup,
+    members: List<Client>,
     busy: Boolean,
+    onOpenClient: (String) -> Unit,
     onAddClients: () -> Unit,
     onRemoveClients: () -> Unit,
     onResetTraffic: () -> Unit,
@@ -273,9 +285,10 @@ private fun GroupCard(
     onDeleteClients: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
+    var expanded by rememberSaveable(group.name) { mutableStateOf(false) }
     val hasClients = group.clientCount > 0
     val danger = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error)
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) {
         Column(
             Modifier.padding(start = 12.dp, top = 4.dp, end = 4.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -287,6 +300,11 @@ private fun GroupCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = if (expanded) tr("Hide clients") else tr("Show clients"),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Box {
                     IconButton(onClick = { menu = true }, enabled = !busy) {
@@ -333,6 +351,33 @@ private fun GroupCard(
                 if (up != null && down != null) "↑ ${up.formatBytes()}   ↓ ${down.formatBytes()}   ·   $total" else total,
                 style = MaterialTheme.typography.labelMedium,
             )
+            if (expanded) {
+                HorizontalDivider(Modifier.padding(top = 4.dp, end = 8.dp))
+                if (members.isEmpty()) {
+                    Text(
+                        tr("This group has no clients yet."),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 6.dp),
+                    )
+                }
+                // A tap opens the same client sheet as on the Clients screen.
+                members.forEach { c ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenClient(c.email) }
+                            .padding(end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    ) {
+                        Text(c.email, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "↑ ${c.up.formatBytes()}   ↓ ${c.down.formatBytes()}" + if (!c.enable) "   ·   ${tr("disabled")}" else "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
         }
     }
 }

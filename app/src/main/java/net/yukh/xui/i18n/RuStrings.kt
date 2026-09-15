@@ -555,6 +555,9 @@ val ruStrings: Map<String, String> = mapOf(
     "Deleted / skipped" to "Удалено / пропущено",
     "Action failed" to "Не удалось выполнить",
     "Resetting a group's traffic" to "Сброс трафика группы",
+    "Show clients" to "Показать клиентов",
+    "Hide clients" to "Скрыть клиентов",
+    "Leave empty to keep the node's current token." to "Оставьте пустым, чтобы сохранить текущий токен узла.",
 
     // Client editor (additional)
     "Email / name" to "Email / имя",

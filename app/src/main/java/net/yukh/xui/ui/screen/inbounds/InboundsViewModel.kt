@@ -80,6 +80,8 @@ data class InboundEditorState(
     val vlessKeys: List<VlessEncAuth>? = null,
     val vlessKeysLoading: Boolean = false,
     val vlessKeysError: String? = null,
+    /** Panel v3.8.0+: a new inbound may also be TUIC. */
+    val panel380: Boolean = false,
 ) {
     val canSave: Boolean
         get() = !saving && !loading && (port.toIntOrNull() ?: 0) in 1..65535
@@ -200,6 +202,10 @@ class InboundsViewModel @Inject constructor(
                     originalClients = null,
                 ),
             )
+        }
+        viewModelScope.launch {
+            val panel380 = repo.isPanel380()
+            _state.update { s -> s.editor?.let { s.copy(editor = it.copy(panel380 = panel380)) } ?: s }
         }
     }
 

@@ -51,6 +51,8 @@ data class GroupsUiState(
     val picker: GroupClientsPicker? = null,
     /** English name of a group action this panel is too old for; the screen explains it. */
     val unsupportedAction: String? = null,
+    /** Each group's members by group name, for the expandable list on its card. */
+    val members: Map<String, List<Client>> = emptyMap(),
 )
 
 /**
@@ -71,7 +73,14 @@ class GroupsViewModel @Inject constructor(
         viewModelScope.launch {
             val r = repo.listClientGroups()
             r.onSuccess { list ->
-                _state.update { it.copy(loading = false, refreshing = false, unsupported = false, groups = list) }
+                // Members are best-effort: without them the cards still show counts and traffic.
+                val members = repo.listClients().getOrNull().orEmpty()
+                    .filter { it.group.isNotBlank() }
+                    .groupBy { it.group.trim() }
+                    .mapValues { (_, clients) -> clients.sortedBy { it.email.lowercase() } }
+                _state.update {
+                    it.copy(loading = false, refreshing = false, unsupported = false, groups = list, members = members)
+                }
             }.onFailure { e ->
                 val unsupported = r.isUnsupportedByPanel()
                 _state.update {
