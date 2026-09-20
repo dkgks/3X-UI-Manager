@@ -62,7 +62,7 @@ class UpdateViewModel @Inject constructor(
      *  and un-wrap its 80-col hard breaks so the dialog doesn't break mid-sentence. */
     private suspend fun localized(release: AppRelease): AppRelease {
         val russian = resolveLanguage(settings.getLanguage(), java.util.Locale.getDefault().language) == LANG_RU
-        val notes = UpdateChecker.localizedNotes(release.version, russian, channel()) ?: release.notes
+        val notes = UpdateChecker.localizedNotes(release.tag, russian, channel()) ?: release.notes
         return release.copy(notes = UpdateChecker.reflowNotes(notes))
     }
 
