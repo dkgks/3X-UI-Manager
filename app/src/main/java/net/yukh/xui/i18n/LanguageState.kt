@@ -7,22 +7,18 @@ import net.yukh.xui.data.prefs.AppSettingsStore
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Supported UI languages. */
-const val LANG_EN = "en"
-const val LANG_RU = "ru"
-
-/** The stored preference meaning "follow the device language" — the default,
- *  so a Russian phone gets a Russian app without visiting Settings first. */
-const val LANG_SYSTEM = ""
-
 /**
  * Resolve a stored preference to the language the UI actually renders in.
- * An explicit choice wins; otherwise the device language decides, and anything
- * we don't translate falls back to English.
+ * An explicit choice wins; otherwise the device language decides (mapping it
+ * to a language we translate), and anything untranslated falls back to English.
  */
 fun resolveLanguage(preference: String, systemLanguage: String): String = when (preference) {
-    LANG_RU, LANG_EN -> preference
-    else -> if (systemLanguage == LANG_RU) LANG_RU else LANG_EN
+    LANG_RU, LANG_EN, LANG_ZH -> preference
+    else -> when {
+        systemLanguage == LANG_RU -> LANG_RU
+        systemLanguage.startsWith("zh") -> LANG_ZH
+        else -> LANG_EN
+    }
 }
 
 /**
@@ -30,8 +26,8 @@ fun resolveLanguage(preference: String, systemLanguage: String): String = when (
  *
  * [preference] is what the user picked — including [LANG_SYSTEM]. The root
  * composable resolves it against the *current* configuration and republishes
- * the result through LocalAppLanguage, so changing the device language takes
- * effect without a restart. Callers outside composition use [effective].
+ * the result through LocalAppLanguage. Callers outside composition use
+ * [effective].
  */
 @Singleton
 class LanguageState @Inject constructor(

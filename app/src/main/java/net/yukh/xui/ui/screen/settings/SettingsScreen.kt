@@ -56,6 +56,7 @@ import net.yukh.xui.BuildConfig
 import net.yukh.xui.i18n.LANG_EN
 import net.yukh.xui.i18n.LANG_RU
 import net.yukh.xui.i18n.LANG_SYSTEM
+import net.yukh.xui.i18n.LANG_ZH
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.security.BiometricAuth
 import net.yukh.xui.update.UpdateChannel
@@ -143,6 +144,8 @@ fun SettingsScreen(
                     LanguageRow("English", selected = lang == LANG_EN) { vm.setLanguage(LANG_EN) }
                     HorizontalDivider()
                     LanguageRow("Русский", selected = lang == LANG_RU) { vm.setLanguage(LANG_RU) }
+                    HorizontalDivider()
+                    LanguageRow("中文", selected = lang == LANG_ZH) { vm.setLanguage(LANG_ZH) }
                 }
             }
 
