@@ -9,7 +9,8 @@ import org.json.JSONObject
 
 /** A release published on one of the update channels. */
 data class AppRelease(
-    val version: String,   // e.g. "0.5.5" (the tag without the leading "v")
+    val version: String,   // e.g. "0.5.5" — the tag minus the "localized-"/"v" prefixes
+    val tag: String,       // the raw release tag, e.g. "localized-v0.14.3"
     val notes: String,     // release description (markdown)
     val apkUrl: String?,   // download URL of the .apk asset, or null if missing
     val pageUrl: String,   // release web page (fallback link)
@@ -37,8 +38,16 @@ enum class UpdateChannel {
  * work anonymously — no token in the app.
  */
 object UpdateChecker {
-    // Stable: public GitHub repo, reachable from anywhere.
-    private const val GH_REPO = "yukh975/3X-UI-Manager"
+    // Stable: this fork's public GitHub repo — the localized builds are released here.
+    private const val GH_REPO = "dkgks/3X-UI-Manager"
+
+    /** Releases on this repo are tagged `localized-<upstream tag>`; strip that prefix
+     *  (and the leading `v`) so the version compares like plain semver against the
+     *  app's own versionName. */
+    private const val LOCALIZED_PREFIX = "localized-"
+
+    fun tagToVersion(tag: String): String =
+        tag.removePrefix(LOCALIZED_PREFIX).removePrefix("v")
     private const val GH_API = "https://api.github.com/repos/$GH_REPO"
     private const val GH_RAW = "https://raw.githubusercontent.com/$GH_REPO"
     private const val GH_RELEASES = "https://github.com/$GH_REPO/releases"
@@ -67,13 +76,14 @@ object UpdateChecker {
      * `## [version]` block. Returns null on any failure → caller keeps the
      * release body as a fallback.
      */
-    suspend fun localizedNotes(version: String, russian: Boolean, channel: UpdateChannel): String? =
+    suspend fun localizedNotes(tag: String, russian: Boolean, channel: UpdateChannel): String? =
         withContext(Dispatchers.IO) {
+            val version = tagToVersion(tag)
             val file = if (russian) "CHANGELOG.ru.md" else "CHANGELOG.md"
             val url = if (channel == UpdateChannel.TESTING) {
-                "$GL_FILES/$file/raw?ref=v$version"
+                "$GL_FILES/$file/raw?ref=$tag"
             } else {
-                "$GH_RAW/v$version/$file"
+                "$GH_RAW/$tag/$file"
             }
             val req = Request.Builder().url(url).build()
             runCatching {
@@ -130,7 +140,8 @@ object UpdateChecker {
             client.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) return@use null
                 val rel = JSONObject(resp.body?.string() ?: return@use null)
-                val version = rel.optString("tag_name").removePrefix("v")
+                val tag = rel.optString("tag_name")
+                val version = tagToVersion(tag)
                 if (version.isBlank()) return@use null
                 val assets = rel.optJSONArray("assets")
                 var apkUrl: String? = null
@@ -146,6 +157,7 @@ object UpdateChecker {
                 }
                 AppRelease(
                     version = version,
+                    tag = tag,
                     notes = rel.optString("body"),
                     apkUrl = apkUrl,
                     pageUrl = rel.optString("html_url").ifBlank { GH_RELEASES },
@@ -163,7 +175,8 @@ object UpdateChecker {
                 val arr = JSONArray(resp.body?.string() ?: return@use null)
                 if (arr.length() == 0) return@use null
                 val rel = arr.getJSONObject(0)
-                val version = rel.optString("tag_name").removePrefix("v")
+                val tag = rel.optString("tag_name")
+                val version = tagToVersion(tag)
                 if (version.isBlank()) return@use null
                 val links = rel.optJSONObject("assets")?.optJSONArray("links")
                 var apkUrl: String? = null
@@ -175,6 +188,7 @@ object UpdateChecker {
                 }
                 AppRelease(
                     version = version,
+                    tag = tag,
                     notes = rel.optString("description"),
                     apkUrl = apkUrl,
                     pageUrl = rel.optJSONObject("_links")?.optString("self").orEmpty()
