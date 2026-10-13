@@ -87,21 +87,6 @@ private fun parseServersImport(text: String): List<JsonElement>? {
     return arr?.toList()
 }
 
-private fun serverToObject(el: kotlinx.serialization.json.JsonElement): JsonObject = when (el) {
-    is JsonObject -> el
-    is JsonPrimitive -> JsonObject(mapOf("address" to el))
-    else -> JsonObject(emptyMap())
-}
-
-/** Collapse a server object back to a bare string when only the address is set. */
-private fun serverToElement(o: JsonObject): kotlinx.serialization.json.JsonElement {
-    val plain = o.strings("domains").isEmpty() && o.strings("expectIPs").isEmpty() &&
-        o.strings("unexpectedIPs").isEmpty() && (o.int("port") == null || o.int("port") == 53) &&
-        (o.string("queryStrategy").isBlank() || o.string("queryStrategy") == "UseIP") &&
-        !o.bool("disableCache") && !o.bool("finalQuery")
-    return if (plain) JsonPrimitive(o.string("address")) else o
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DnsScreen(onClose: () -> Unit, vm: DnsViewModel = hiltViewModel()) {
@@ -190,6 +175,9 @@ private fun DnsBody(cfg: JsonObject, vm: DnsViewModel) {
             LabeledDropdown(tr("Query strategy"), dns.string("queryStrategy").ifBlank { "UseIP" }, DNS_QUERY_STRATEGY) {
                 setDns(dns.putString("queryStrategy", it))
             }
+            // Panel 3.10: a blank script must be removed — Xray refuses to start on an empty path.
+            Field(tr("Lua Script"), dns.string("script")) { setDns(if (it.isBlank()) dns.put("script", null) else dns.putString("script", it)) }
+            HelpText(tr("Path to a .lua file defining HandleDNSQuery, absolute or relative to the Xray bin folder. The script then answers every query and reaches the servers only through its own code. Xray will not start if the file is missing or invalid."))
             SwitchRow(tr("Disable cache"), dns.bool("disableCache")) { setDns(dns.putBool("disableCache", it)) }
             SwitchRow(tr("Disable fallback"), dns.bool("disableFallback")) { setDns(dns.putBool("disableFallback", it)) }
             SwitchRow(tr("Disable fallback if match"), dns.bool("disableFallbackIfMatch")) { setDns(dns.putBool("disableFallbackIfMatch", it)) }
@@ -215,7 +203,7 @@ private fun DnsBody(cfg: JsonObject, vm: DnsViewModel) {
                     Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(o.string("address").ifBlank { "(no address)" }, style = MaterialTheme.typography.titleSmall)
-                            val sub = o.strings("domains").joinToString(", ").ifBlank { o.strings("expectIPs").joinToString(", ") }
+                            val sub = o.strings("domains").joinToString(", ").ifBlank { o.strings(o.expectedIpsKey()).joinToString(", ") }
                             if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { pendingDelete = i }) { Icon(Icons.Outlined.Delete, contentDescription = tr("Delete")) }
@@ -318,15 +306,23 @@ private fun DnsServerEditor(
         ) {
             Field(tr("Address"), draft.string("address")) { onChange(draft.putString("address", it)) }
             Field(tr("Port"), draft.int("port")?.toString() ?: "", numeric = true) { onChange(draft.putInt("port", it.toIntOrNull() ?: 53)) }
+            Field(tr("ID"), draft.string("id")) { onChange(if (it.isBlank()) draft.put("id", null) else draft.putString("id", it)) }
+            HelpText(tr("The name a Lua DNS script uses to pick this server"))
             LabeledDropdown(tr("Query strategy"), draft.string("queryStrategy").ifBlank { "UseIP" }, DNS_QUERY_STRATEGY) {
                 onChange(draft.putString("queryStrategy", it))
             }
             Field(tr("Domains (comma-separated)"), draft.strings("domains").joinToString(", ")) { onChange(draft.putStrings("domains", parseCsv(it))) }
-            Field(tr("Expected IPs (comma-separated)"), draft.strings("expectIPs").joinToString(", ")) { onChange(draft.putStrings("expectIPs", parseCsv(it))) }
+            val ipsKey = draft.expectedIpsKey()
+            Field(tr("Expected IPs (comma-separated)"), draft.strings(ipsKey).joinToString(", ")) { onChange(draft.putStrings(ipsKey, parseCsv(it))) }
             Field(tr("Unexpected IPs (comma-separated)"), draft.strings("unexpectedIPs").joinToString(", ")) { onChange(draft.putStrings("unexpectedIPs", parseCsv(it))) }
-            SwitchRow(tr("Skip fallback"), if (draft["skipFallback"] == null) true else draft.bool("skipFallback")) { onChange(draft.putBool("skipFallback", it)) }
+            SwitchRow(tr("Skip fallback"), draft.bool("skipFallback")) { onChange(draft.putBool("skipFallback", it)) }
             SwitchRow(tr("Disable cache"), draft.bool("disableCache")) { onChange(draft.putBool("disableCache", it)) }
             SwitchRow(tr("Final query"), draft.bool("finalQuery")) { onChange(draft.putBool("finalQuery", it)) }
         }
     }
+}
+
+@Composable
+private fun HelpText(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

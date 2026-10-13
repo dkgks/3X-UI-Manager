@@ -177,6 +177,7 @@ class OutboundsViewModel @Inject constructor(
         val list = st.outbounds.toMutableList()
         if (ed.isNew) list.add(ed.draft) else list[ed.index] = ed.draft
         _state.update { it.copy(outbounds = list, dirty = true, editing = null, editorError = null) }
+        save()
     }
 
     fun deleteAt(index: Int) = _state.update {
