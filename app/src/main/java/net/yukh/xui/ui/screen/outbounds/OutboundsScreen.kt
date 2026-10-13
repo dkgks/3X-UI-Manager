@@ -116,6 +116,7 @@ fun OutboundsScreen(
             onCancel = vm::closeEditor,
             onDelete = if (!editing.isNew) ({ confirmDelete = true }) else null,
             protocols = if (state.panel380) OUTBOUND_PROTOCOLS + "amneziawg" else OUTBOUND_PROTOCOLS,
+            panel3100 = state.panel3100,
         )
         if (confirmDelete) {
             ConfirmDialog(

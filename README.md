@@ -2,7 +2,7 @@
 
 Native mobile clients for managing [3x-ui](https://github.com/MHSanaei/3x-ui) panels over the REST API — dashboard, inbounds, clients (with QR sharing), nodes, and the Xray config, on the go. **Multi-instance: connect to several panels and switch between them from one app.**
 
-> ✅ **Compatible with 3x-ui panels up to v3.9.0.** The app speaks the panel's stable REST API, so a new panel release does **not** require a new app version — no need to wait for an app update when the panel bumps (the rare exceptions are noted in this app's release notes).
+> ✅ **Compatible with 3x-ui panels up to v3.10.0.** The app speaks the panel's stable REST API, so a new panel release does **not** require a new app version — no need to wait for an app update when the panel bumps (the rare exceptions are noted in this app's release notes). Panel **3.10.0** is one: creating Shadowsocks inbounds and MASQUE support need app **v0.15.1** or newer.
 
 This branch (`main`) holds the **Android** app (Kotlin + Jetpack Compose), built straight from the repository root.
 
@@ -21,7 +21,7 @@ This branch (`main`) holds the **Android** app (Kotlin + Jetpack Compose), built
 - **[Obtainium](https://github.com/ImranR98/Obtainium)** — install and auto-update straight from GitHub Releases: add the app by its repo URL `https://github.com/yukh975/3X-UI-Manager` (filter APKs by `3x-ui-manager` to pick the `standard` flavor).
 - **iOS** — unsigned `.ipa` for sideloading (AltStore / Sideloadly), attached to each release.
 
-Requires a panel running **3x-ui v3.3.0 or newer** (API-token auth); tested through **v3.9.0** (see the compatibility note at the top).
+Requires a panel running **3x-ui v3.3.0 or newer** (API-token auth); tested through **v3.10.0** (see the compatibility note at the top).
 
 ---
 
@@ -114,7 +114,7 @@ Structured editors over the panel's Xray config — each round-trips the **whole
 
 ## Authentication
 
-The app authenticates with an **API token** (Bearer) only, and is designed for panel **v3.4.x and newer** (tested through **v3.9.0**). There is no login/password mode.
+The app authenticates with an **API token** (Bearer) only, and is designed for panel **v3.4.x and newer** (tested through **v3.10.0**). There is no login/password mode.
 
 > **Panel v3.3.x users:** the current app version is optimised for **v3.4.x**. For panels on **v3.3.x**, use the last compatible release — **v0.3.23**.
 

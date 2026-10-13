@@ -6,6 +6,29 @@ uses [Semantic Versioning](https://semver.org/).
 
 🇷🇺 [Версия на русском](CHANGELOG.ru.md)
 
+## [0.15.1] — 2026-10-13
+
+### Added
+- **Panel 3.10.0 support.** The app works with panel 3.10.0 and keeps everything new it adds when you save.
+- **MASQUE inbounds** (panel 3.10+): create them with an address pool, MTU and path; TLS is required, so TLS inbounds now have certificate and key file fields. MASQUE clients get their config only through the JSON subscription, so a client's share sheet now also shows the JSON subscription link when the panel serves it.
+- **"Use system CA" in outbound TLS** (panel 3.10+): Xray-core 26.10.10 verifies servers against its bundled roots, so an outbound to a server with a private CA needs this switch.
+- **Lua scripts and DNS server ID** (panel 3.10+): fields for a DNS server's ID, the DNS Lua script and the routing script. The Routing screen warns when a routing script is set, because Xray then ignores the rules.
+- **Hysteria and MASQUE outbounds** (including WARP over MASQUE) now show their transport and TLS settings for editing.
+- **Certificate SHA-256 pin field** for nodes that use certificate pinning.
+
+### Fixed
+- **A new Shadowsocks inbound could not be created on panel 3.10.** The app now generates a server key of the right length and regenerates it when the method changes; the 2022 ChaCha20 method, which the panel refuses on inbounds, is no longer offered.
+- **Save in the outbound editor did not write to the panel**, so leaving the screen lost the change. It now saves at once, like the routing and DNS editors.
+- **Saving a DNS server dropped its ID, tag, client IP, expected IPs, skip-fallback and timeout settings.** Expected IPs also showed empty for servers saved by the panel, and Skip fallback showed as on when it was not set.
+- **Saving an inbound reset its custom tag, subscription order, "exclude from subscription" flag and monthly reset day.** A custom tag was regenerated, so routing rules pointing at it stopped matching. The Enabled switch in the inbound editor now really turns the inbound on or off.
+- **Editing a client turned off its weekly renewal and removed its VLESS reverse proxy.**
+- **Editing a node switched "selected inbounds" sync back to "all"**, and nodes using certificate pinning could not be saved at all.
+- **A failed attach or detach of a client's inbounds was reported as "Client updated".** The panel's error is shown now. With a MASQUE inbound selected, the client editor refuses an email containing ":".
+- **Changing a balancer's strategy dropped its leastLoad settings.**
+- **The new-inbound list offered "socks"**, which the panel rejects; it now offers "mixed" (SOCKS + HTTP).
+- **WebSocket + TLS inbounds now default to ALPN http/1.1**, so WebSocket connections no longer fail on h2. The inbound editor also hides transport and security choices that would break MASQUE, XDRIVE and TUN inbounds.
+- **The QR code is hidden for post-quantum links**, as in the panel: such links are too dense to scan.
+
 ## [0.14.3] — 2026-09-15
 
 ### Added

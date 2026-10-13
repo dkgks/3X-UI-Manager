@@ -442,9 +442,16 @@ class InboundsViewModel @Inject constructor(
             val result = if (e.isNew) repo.addInbound(model) else repo.updateInbound(e.id, model)
             result
                 .onSuccess {
-                    _state.update {
-                        it.copy(editor = null, transientMessage = if (e.isNew) "Inbound created" else "Inbound updated")
+                    // The panel's update keeps the stored `enable`, so a flipped switch needs its own call.
+                    val toggleError = if (!e.isNew && e.loaded != null && e.loaded.enable != e.enable) {
+                        repo.setInboundEnable(e.id, e.enable).exceptionOrNull()?.message
+                    } else null
+                    val msg = when {
+                        e.isNew -> "Inbound created"
+                        toggleError != null -> "Inbound updated, but enabling/disabling failed: $toggleError"
+                        else -> "Inbound updated"
                     }
+                    _state.update { it.copy(editor = null, transientMessage = msg) }
                     load(force = true)
                 }
                 .onFailure { ex ->

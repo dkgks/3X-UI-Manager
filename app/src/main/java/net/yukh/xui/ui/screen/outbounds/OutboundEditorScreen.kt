@@ -93,6 +93,7 @@ fun OutboundEditorScreen(
     onCancel: () -> Unit,
     onDelete: (() -> Unit)?,
     protocols: List<String> = OUTBOUND_PROTOCOLS,
+    panel3100: Boolean = false,
 ) {
     val draft = editing.draft
     val protocol = draft.outboundProtocol()
@@ -169,7 +170,7 @@ fun OutboundEditorScreen(
             }
 
             if (protocol in PROXY_PROTOCOLS) {
-                OutboundStreamSettings(draft, onDraftChange)
+                OutboundStreamSettings(draft, onDraftChange, panel3100)
                 MuxSection(draft, onDraftChange)
             }
         }

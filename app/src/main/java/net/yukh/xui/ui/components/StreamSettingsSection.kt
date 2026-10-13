@@ -39,7 +39,7 @@ private val XHTTP_MODES = listOf("auto", "packet-up", "stream-up", "stream-one")
  * [panel3100] = the panel is v3.10.0+, whose xray-core knows `useSystemCA`.
  */
 @Composable
-fun OutboundStreamSettings(draft: JsonObject, onChange: (JsonObject) -> Unit, panel3100: Boolean = true) {
+fun OutboundStreamSettings(draft: JsonObject, onChange: (JsonObject) -> Unit, panel3100: Boolean = false) {
     val stream = draft.child("streamSettings")
     fun put(child: String, obj: JsonObject) = onChange(draft.put("streamSettings", stream.put(child, obj)))
     fun putKey(key: String, value: String) = onChange(draft.put("streamSettings", stream.putString(key, value)))
