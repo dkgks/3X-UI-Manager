@@ -13,6 +13,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import net.yukh.xui.data.repo.PanelRepository
 import net.yukh.xui.data.repo.isUnsupportedByPanel
+import net.yukh.xui.data.repo.panelAppliesXrayOnSave
+import net.yukh.xui.ui.screen.xrayedit.xraySaveMessage
 
 private val prettyJson = Json { prettyPrint = true; isLenient = true }
 
@@ -26,6 +28,8 @@ data class XrayConfigUiState(
     val saving: Boolean = false,
     val error: String? = null,
     val savedMessage: String? = null,
+    /** The panel applies a save itself (v3.3.1+), so the help text must not ask for a restart. */
+    val appliesOnSave: Boolean = false,
 )
 
 @HiltViewModel
@@ -41,10 +45,12 @@ class XrayConfigViewModel @Inject constructor(
         viewModelScope.launch {
             repo.getXraySetting()
                 .onSuccess { env ->
+                    val appliesOnSave = panelAppliesXrayOnSave(repo.panelVersion())
                     _state.update {
                         it.copy(
                             loading = false,
                             available = true,
+                            appliesOnSave = appliesOnSave,
                             configText = prettyJson.encodeToString(JsonElement.serializer(), env.xraySetting),
                             testUrl = env.outboundTestUrl,
                             error = null,
@@ -83,7 +89,8 @@ class XrayConfigViewModel @Inject constructor(
         viewModelScope.launch {
             repo.updateXraySetting(minified, s.testUrl.trim())
                 .onSuccess {
-                    _state.update { it.copy(saving = false, savedMessage = "Xray config saved — restart Xray to apply") }
+                    val msg = repo.xraySaveMessage()
+                    _state.update { it.copy(saving = false, savedMessage = msg) }
                 }
                 .onFailure { e ->
                     _state.update { it.copy(saving = false, error = e.message ?: "Save failed") }

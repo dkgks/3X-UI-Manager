@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import net.yukh.xui.data.json.asObject
 import net.yukh.xui.data.json.string
 import net.yukh.xui.data.repo.PanelRepository
+import net.yukh.xui.data.repo.panelAppliesXrayOnSave
 
 /**
  * Shared load/save plumbing for the structured Xray-config section editors
@@ -40,3 +41,12 @@ suspend fun PanelRepository.loadXrayConfig(): Result<XrayConfigLoad> =
 
 suspend fun PanelRepository.saveXrayConfig(config: JsonObject, testUrl: String): Result<Unit> =
     updateXraySetting(xrayPrettyJson.encodeToString(JsonElement.serializer(), config), testUrl.trim())
+
+const val XRAY_SAVED_APPLIED = "Saved and applied"
+const val XRAY_SAVED_RESTART = "Saved — restart Xray to apply"
+
+/** What to tell the user after `xray/update` succeeded on a panel of [panelVersion]. */
+fun xraySaveMessage(panelVersion: String): String =
+    if (panelAppliesXrayOnSave(panelVersion)) XRAY_SAVED_APPLIED else XRAY_SAVED_RESTART
+
+suspend fun PanelRepository.xraySaveMessage(): String = xraySaveMessage(panelVersion())

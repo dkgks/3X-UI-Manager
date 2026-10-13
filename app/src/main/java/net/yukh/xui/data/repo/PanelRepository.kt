@@ -572,8 +572,9 @@ class PanelRepository @Inject constructor(
     suspend fun listOutboundSubs(): Result<List<OutboundSubscription>> =
         authedData { it.listOutboundSubs() }
 
-    suspend fun createOutboundSub(sub: OutboundSubscription): Result<Unit> =
-        authedAck {
+    /** Returns the created subscription (with its new id) when the panel echoes it. */
+    suspend fun createOutboundSub(sub: OutboundSubscription): Result<OutboundSubscription?> =
+        authedDataOrNull {
             it.createOutboundSub(
                 url = sub.url.trim(), remark = sub.remark.trim(), tagPrefix = sub.tagPrefix.trim(),
                 enabled = sub.enabled, updateInterval = sub.updateInterval, prepend = sub.prepend,

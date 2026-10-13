@@ -21,6 +21,7 @@ import net.yukh.xui.data.json.putArray
 import net.yukh.xui.data.repo.PanelRepository
 import net.yukh.xui.data.repo.isUnsupportedByPanel
 import net.yukh.xui.data.repo.panelVersionAtLeast
+import net.yukh.xui.ui.screen.xrayedit.xraySaveMessage
 
 private val prettyJson = Json { prettyPrint = true; isLenient = true }
 
@@ -216,9 +217,10 @@ class OutboundsViewModel @Inject constructor(
         viewModelScope.launch {
             repo.updateXraySetting(minified, testUrl.trim())
                 .onSuccess {
+                    val msg = repo.xraySaveMessage()
                     configObj = updated
                     _state.update {
-                        it.copy(saving = false, dirty = false, savedMessage = "Outbounds saved — restart Xray to apply")
+                        it.copy(saving = false, dirty = false, savedMessage = msg)
                     }
                 }
                 .onFailure { e ->

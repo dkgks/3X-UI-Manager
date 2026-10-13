@@ -19,7 +19,7 @@ class BalancersSaveStateTest {
     fun `saving the observatory edit clears both the section and the screen Save`() {
         val edited = BalancersUiState(available = true, config = base, saving = true)
             .withObservatoryEdit(base.patchObservatory("probeInterval", JsonPrimitive("30s")))
-        val saved = edited.afterSaved(edited.config)
+        val saved = edited.afterSaved(edited.config, XRAY_SAVED_APPLIED)
         assertFalse(saved.observatoryDirty)
         assertFalse(saved.dirty)
         assertFalse(saved.saving)
@@ -29,7 +29,7 @@ class BalancersSaveStateTest {
     fun `an observatory edit made while the save was in flight stays unsaved`() {
         val sent = BalancersUiState(available = true, config = base).withObservatoryEdit(base.patchObservatory("probeInterval", JsonPrimitive("30s")))
         val typedMore = sent.withObservatoryEdit(sent.config.patchObservatory("probeInterval", JsonPrimitive("45s")))
-        val saved = typedMore.afterSaved(sent.config)
+        val saved = typedMore.afterSaved(sent.config, XRAY_SAVED_APPLIED)
         assertTrue(saved.observatoryDirty)
         assertTrue(saved.dirty)
     }

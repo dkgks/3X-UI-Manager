@@ -307,7 +307,7 @@ interface XuiApi {
         @Field("prepend") prepend: Boolean,
         @Field("allowPrivate") allowPrivate: Boolean,
         @Field("allowInsecure") allowInsecure: Boolean,
-    ): ApiAck
+    ): ApiResponse<OutboundSubscription>
 
     @FormUrlEncoded
     @POST("panel/api/xray/outbound-subs/{id}")

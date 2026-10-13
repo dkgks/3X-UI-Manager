@@ -156,7 +156,8 @@ class GeodataViewModel @Inject constructor(
             repo.saveXrayConfig(updated, testUrl)
                 .onSuccess {
                     config = updated
-                    _state.update { it.copy(saving = false, dirty = false, savedMessage = "Saved — restart Xray to apply") }
+                    val msg = repo.xraySaveMessage()
+                    _state.update { it.copy(saving = false, dirty = false, savedMessage = msg) }
                 }
                 .onFailure { e -> _state.update { it.copy(saving = false, error = e.message ?: "Save failed") } }
         }

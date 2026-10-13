@@ -52,6 +52,7 @@ import net.yukh.xui.data.json.putString
 import net.yukh.xui.data.json.putStrings
 import net.yukh.xui.data.json.string
 import net.yukh.xui.data.json.strings
+import net.yukh.xui.i18n.LocalAppLanguage
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.ui.components.ConfirmDialog
 import net.yukh.xui.ui.components.Field
@@ -67,7 +68,8 @@ fun BalancersScreen(onClose: () -> Unit, vm: BalancersViewModel = hiltViewModel(
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.load() }
-    LaunchedEffect(state.savedMessage) { state.savedMessage?.let { snackbar.showSnackbar(it); vm.dismissSavedMessage() } }
+    val lang = LocalAppLanguage.current
+    LaunchedEffect(state.savedMessage) { state.savedMessage?.let { snackbar.showSnackbar(tr(lang, it)); vm.dismissSavedMessage() } }
     LaunchedEffect(state.error) { if (state.available) state.error?.let { snackbar.showSnackbar(it); vm.dismissError() } }
 
     val cfg = state.config

@@ -62,7 +62,10 @@ class DnsViewModel @Inject constructor(
         _state.update { it.copy(saving = true, error = null) }
         viewModelScope.launch {
             repo.saveXrayConfig(st.config, st.testUrl)
-                .onSuccess { _state.update { it.copy(saving = false, dirty = false, savedMessage = "Saved — restart Xray to apply") } }
+                .onSuccess {
+                    val msg = repo.xraySaveMessage()
+                    _state.update { it.copy(saving = false, dirty = false, savedMessage = msg) }
+                }
                 .onFailure { e -> _state.update { it.copy(saving = false, error = e.message ?: "Save failed") } }
         }
     }

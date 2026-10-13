@@ -72,10 +72,16 @@ fun OutboundSubsScreen(onClose: () -> Unit, vm: OutboundSubsViewModel = hiltView
     val snackbar = remember { SnackbarHostState() }
     var deleteTarget by remember { mutableStateOf<OutboundSubscription?>(null) }
 
+    val lang = LocalAppLanguage.current
     LaunchedEffect(state.message) {
         state.message?.let {
-            val restart = snackbar.showSnackbar(it, actionLabel = "Xray")
-            if (restart == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.restartXray()
+            val text = tr(lang, it) + (state.messageCount?.let { n -> " ($n)" } ?: "")
+            if (state.offersRestart) {
+                val restart = snackbar.showSnackbar(text, actionLabel = "Xray")
+                if (restart == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.restartXray()
+            } else {
+                snackbar.showSnackbar(text)
+            }
             vm.dismissMessage()
         }
     }

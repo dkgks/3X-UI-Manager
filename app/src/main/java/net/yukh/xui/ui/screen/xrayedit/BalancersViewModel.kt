@@ -36,9 +36,9 @@ data class BalancersUiState(
     fun withObservatoryEdit(config: JsonObject) = copy(config = config, dirty = true, observatoryDirty = true)
 
     /** Edits made while [saved] was in flight stay unsaved; everything else is clean now. */
-    fun afterSaved(saved: JsonObject): BalancersUiState {
+    fun afterSaved(saved: JsonObject, message: String): BalancersUiState {
         val clean = config == saved
-        return copy(saving = false, dirty = dirty && !clean, observatoryDirty = observatoryDirty && !clean, savedMessage = "Saved — restart Xray to apply")
+        return copy(saving = false, dirty = dirty && !clean, observatoryDirty = observatoryDirty && !clean, savedMessage = message)
     }
 }
 
@@ -81,7 +81,10 @@ class BalancersViewModel @Inject constructor(
         _state.update { it.copy(saving = true, error = null) }
         viewModelScope.launch {
             repo.saveXrayConfig(st.config, st.testUrl)
-                .onSuccess { _state.update { it.afterSaved(st.config) } }
+                .onSuccess {
+                    val msg = repo.xraySaveMessage()
+                    _state.update { it.afterSaved(st.config, msg) }
+                }
                 .onFailure { e -> _state.update { it.copy(saving = false, error = e.message ?: "Save failed") } }
         }
     }

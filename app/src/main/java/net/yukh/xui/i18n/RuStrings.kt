@@ -878,4 +878,14 @@ val ruStrings: Map<String, String> = mapOf(
         "Сколько последних результатов проб хранится для оценки каждого исходящего.",
     "HTTP Method" to "Метод HTTP",
     "HTTP method used for probes." to "Метод HTTP, используемый для проб.",
+
+    // apply on save
+    "Saved and applied" to "Сохранено и применено",
+    "panel's Xray Configuration page. The panel applies it on save — live where it can, restarting Xray only when a change needs it." to
+        "страница Xray Configuration в панели. Панель применяет его при сохранении — на лету, где возможно, и перезапускает Xray, только если изменение этого требует.",
+    "This replaces the panel's Xray configuration and applies it right away. A broken config can take Xray down." to
+        "Это заменит конфигурацию Xray в панели и сразу применит её. Сломанный конфиг может уронить Xray.",
+    "Saved — the panel applies it within 30 s" to "Сохранено — панель применит это в течение 30 с",
+    "Done — the panel applies it within 30 s" to "Готово — панель применит это в течение 30 с",
+    "Refreshed — the panel applies it within 30 s" to "Обновлено — панель применит это в течение 30 с",
 )

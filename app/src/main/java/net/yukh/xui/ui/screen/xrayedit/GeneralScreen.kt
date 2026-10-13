@@ -37,6 +37,7 @@ import net.yukh.xui.data.json.put
 import net.yukh.xui.data.json.putBool
 import net.yukh.xui.data.json.putString
 import net.yukh.xui.data.json.string
+import net.yukh.xui.i18n.LocalAppLanguage
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.ui.components.PanelFeatureUnsupported
 import net.yukh.xui.ui.components.Field
@@ -54,7 +55,8 @@ fun GeneralScreen(onClose: () -> Unit, vm: GeneralViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.load() }
-    LaunchedEffect(state.savedMessage) { state.savedMessage?.let { snackbar.showSnackbar(it); vm.dismissSavedMessage() } }
+    val lang = LocalAppLanguage.current
+    LaunchedEffect(state.savedMessage) { state.savedMessage?.let { snackbar.showSnackbar(tr(lang, it)); vm.dismissSavedMessage() } }
     LaunchedEffect(state.error) { if (state.available) state.error?.let { snackbar.showSnackbar(it); vm.dismissError() } }
 
     Scaffold(
