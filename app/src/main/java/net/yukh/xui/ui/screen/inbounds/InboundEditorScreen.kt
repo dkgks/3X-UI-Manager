@@ -392,7 +392,7 @@ fun InboundEditorScreen(
         ConfirmDialog(
             title = if (state.isNew) tr("Create inbound?") else tr("Save changes?"),
             text = if (state.isNew) "Create this inbound on port ${state.port}?"
-            else tr("Apply changes to this inbound? Xray will restart."),
+            else tr("Apply changes to this inbound?"),
             confirmLabel = if (state.isNew) tr("Create") else tr("Save"),
             onConfirm = vm::saveEditor,
             onDismiss = { confirmSave = false },

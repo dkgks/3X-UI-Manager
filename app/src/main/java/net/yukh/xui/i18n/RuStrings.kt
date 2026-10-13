@@ -610,8 +610,7 @@ val ruStrings: Map<String, String> = mapOf(
     "Clients are managed on the Clients tab and are kept as-is." to
         "Клиентами управляет вкладка Clients, здесь они не затрагиваются.",
     "Create inbound?" to "Создать inbound?",
-    "Apply changes to this inbound? Xray will restart." to
-        "Применить изменения к этому inbound? Xray перезапустится.",
+    "Apply changes to this inbound?" to "Применить изменения к этому inbound?",
     "This removes the inbound and all its clients. This can't be undone." to
         "Это удалит inbound и всех его клиентов. Отменить нельзя.",
 
