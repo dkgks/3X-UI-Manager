@@ -809,4 +809,18 @@ val ruStrings: Map<String, String> = mapOf(
         "API-токен больше не действителен. Переподключитесь с рабочим.",
     "Your session is no longer valid. Sign in again." to
         "Сессия больше не действительна. Войдите снова.",
+
+    // 0.15.1 — inbounds
+    "Address pool" to "Пул адресов",
+    "Tunnel addresses are leased from these prefixes — at most one IPv4 and one IPv6." to
+        "Адреса туннелей выдаются из этих префиксов — не более одного IPv4 и одного IPv6.",
+    "MASQUE clients sign in with email and password. They get the connection from the JSON subscription: MASQUE has no share link." to
+        "Клиенты MASQUE входят по email и паролю. Подключение они получают из JSON-подписки: ссылки для MASQUE нет.",
+    "XDRIVE storage is edited in the stream settings JSON below. Its security stays None: Xray would read TLS here as the storage API's client TLS." to
+        "Хранилище XDRIVE настраивается в JSON stream settings ниже. Безопасность остаётся None: Xray принял бы TLS здесь за клиентский TLS к API хранилища.",
+    "Certificate file" to "Файл сертификата",
+    "Key file" to "Файл ключа",
+    "Use system CA" to "Использовать системные CA",
+    "Verify the server against the server OS's CA store instead of Xray's bundled roots — needed for a private CA. Needs panel v3.10.0." to
+        "Проверять сервер по хранилищу CA операционной системы сервера, а не по встроенным корням Xray — нужно для частного CA. Требуется панель v3.10.0.",
 )

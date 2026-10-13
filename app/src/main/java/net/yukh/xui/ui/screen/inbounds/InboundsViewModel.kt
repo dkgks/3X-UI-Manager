@@ -19,12 +19,16 @@ import net.yukh.xui.data.api.dto.InboundModel
 import net.yukh.xui.data.api.dto.InboundSlim
 import net.yukh.xui.data.api.dto.InboundTemplates
 import net.yukh.xui.data.api.dto.VlessEncAuth
+import net.yukh.xui.data.json.array
 import net.yukh.xui.data.json.asObject
 import net.yukh.xui.data.json.bool
 import net.yukh.xui.data.json.child
+import net.yukh.xui.data.json.int
 import net.yukh.xui.data.json.parseCsv
 import net.yukh.xui.data.json.put
+import net.yukh.xui.data.json.putArray
 import net.yukh.xui.data.json.putBool
+import net.yukh.xui.data.json.putInt
 import net.yukh.xui.data.json.putString
 import net.yukh.xui.data.json.putStrings
 import net.yukh.xui.data.json.string
@@ -32,6 +36,8 @@ import net.yukh.xui.data.json.strings
 import net.yukh.xui.data.prefs.MonitoredInbound
 import net.yukh.xui.data.prefs.MonitoredInboundsStore
 import net.yukh.xui.data.repo.PanelRepository
+import net.yukh.xui.data.repo.panelVersionAtLeast
+import net.yukh.xui.data.repo.supportsPanel380
 
 private const val BYTES_PER_GB = 1024.0 * 1024.0 * 1024.0
 private val prettyJson = Json { prettyPrint = true; isLenient = true }
@@ -82,12 +88,55 @@ data class InboundEditorState(
     val vlessKeysError: String? = null,
     /** Panel v3.8.0+: a new inbound may also be TUIC. */
     val panel380: Boolean = false,
+    /** Panel v3.10.0+: a new inbound may also be MASQUE. */
+    val panel3100: Boolean = false,
+    /** The inbound as fetched for an edit; fields without an editor control ride back on save. */
+    val loaded: InboundModel? = null,
 ) {
     val canSave: Boolean
-        get() = !saving && !loading && (port.toIntOrNull() ?: 0) in 1..65535
+        get() = !saving && !loading && (port.toIntOrNull() ?: 0) in 1..65535 && masqueSettingsValid
 
     val network: String get() = stream.string("network").ifBlank { "tcp" }
     val security: String get() = stream.string("security").ifBlank { "none" }
+
+    /** The protocol settings JSON as an object, or null while the text is not valid JSON. */
+    val settingsObject: JsonObject? get() = parseJsonObject(settingsText)
+
+    /** MASQUE needs an address pool, and an MTU (when set) inside the panel's 1280–65535. */
+    private val masqueSettingsValid: Boolean
+        get() {
+            if (protocol != "masque") return true
+            val s = settingsObject ?: return true
+            return s.strings("address").isNotEmpty() && (s["mtu"] == null || (s.int("mtu") ?: 0) in MASQUE_MTU_RANGE)
+        }
+
+    /**
+     * The add/update body. An edit starts from [loaded], so tag, subscription order,
+     * exclude-from-subscription and the monthly reset day survive (the panel overwrites them).
+     */
+    fun toInboundModel(settings: JsonElement): InboundModel = (loaded ?: InboundModel()).copy(
+        id = id,
+        remark = remark.trim(),
+        enable = enable,
+        listen = listen.trim(),
+        port = port.toIntOrNull() ?: 0,
+        protocol = protocol,
+        expiryTime = expiryTime,
+        total = (totalGb.toDoubleOrNull() ?: 0.0).let { (it * BYTES_PER_GB).toLong() },
+        trafficReset = trafficReset,
+        disableFlow = disableFlow,
+        settings = settings,
+        streamSettings = stream,
+        sniffing = sniffing,
+    )
+}
+
+val MASQUE_MTU_RANGE = 1280..65535
+
+internal fun parseJsonObject(text: String): JsonObject? = try {
+    prettyJson.parseToJsonElement(text.ifBlank { "{}" }) as? JsonObject
+} catch (_: Exception) {
+    null
 }
 
 @HiltViewModel
@@ -204,8 +253,10 @@ class InboundsViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            val panel380 = repo.isPanel380()
-            _state.update { s -> s.editor?.let { s.copy(editor = it.copy(panel380 = panel380)) } ?: s }
+            val version = repo.panelVersion()
+            val panel380 = supportsPanel380(version)
+            val panel3100 = panelVersionAtLeast(version, 3, 10, 0)
+            _state.update { s -> s.editor?.let { s.copy(editor = it.copy(panel380 = panel380, panel3100 = panel3100)) } ?: s }
         }
     }
 
@@ -239,6 +290,7 @@ class InboundsViewModel @Inject constructor(
                                 originalClients = settingsObj["clients"],
                                 monitored = repo.activeProfileId.value
                                     ?.let { monitoredStore.isMonitored(it, ib.id) } ?: false,
+                                loaded = ib,
                             ),
                         )
                     }
@@ -292,18 +344,50 @@ class InboundsViewModel @Inject constructor(
 
     fun clearVlessKeys() = edit { it.copy(vlessKeys = null, vlessKeysError = null) }
 
+    /** A new inbound takes the protocol's template; MASQUE also brings its fixed masque+TLS stream. */
     fun setEditorProtocol(v: String) = edit {
-        if (it.isNew) it.copy(protocol = v, settingsText = settingsWithoutClients(parse(InboundTemplates.settings(v))))
-        else it.copy(protocol = v)
+        if (!it.isNew) return@edit it.copy(protocol = v)
+        val oldNetwork = it.stream.string("network")
+        val stream = when {
+            v == "masque" -> parse(InboundTemplates.streamSettings("masque")) ?: it.stream
+            oldNetwork.isBlank() || oldNetwork == "masque" -> JsonObject(emptyMap()).putString("network", "tcp").putString("security", "none")
+            else -> it.stream
+        }
+        it.copy(protocol = v, stream = stream, settingsText = settingsWithoutClients(parse(InboundTemplates.settings(v))))
     }
+
+    // ---- Editor: structured protocol settings -----------------------------
+
+    /** Patch the protocol settings JSON; refused while the raw text is not valid JSON. */
+    private fun editSettings(t: (JsonObject) -> JsonObject) {
+        val e = _state.value.editor ?: return
+        val obj = e.settingsObject ?: return failEditor("Settings is not valid JSON")
+        edit { it.copy(settingsText = prettyJson.encodeToString(JsonObject.serializer(), t(obj))) }
+    }
+
+    /** A new method needs a key of its own length, so a method change regenerates it (as the panel does). */
+    fun setSsMethod(method: String) = editSettings {
+        it.putString("method", method).putString("password", InboundTemplates.shadowsocksKey(method))
+    }
+    fun setSsPassword(v: String) = editSettings { it.putString("password", v) }
+    fun regenerateSsPassword() = editSettings {
+        it.putString("password", InboundTemplates.shadowsocksKey(it.string("method").ifBlank { InboundTemplates.SS_DEFAULT_METHOD }))
+    }
+
+    fun setMasqueAddressPool(v: List<String>) = editSettings { it.putStrings("address", v) }
+    fun setMasqueMtu(v: String) = editSettings { s ->
+        val digits = v.filter(Char::isDigit)
+        if (digits.isEmpty()) s.put("mtu", null) else s.putInt("mtu", digits.take(5).toInt())
+    }
+    fun setMasquePath(v: String) = editStream { it.put("masqueSettings", it.child("masqueSettings").putString("path", v)) }
 
     // ---- Editor: structured transport / security --------------------------
 
     private fun editStream(t: (JsonObject) -> JsonObject) = edit { it.copy(stream = t(it.stream)) }
     private fun editSniff(t: (JsonObject) -> JsonObject) = edit { it.copy(sniffing = t(it.sniffing)) }
 
-    fun setNetwork(v: String) = editStream { it.putString("network", v) }
-    fun setSecurity(v: String) = editStream { it.putString("security", v) }
+    fun setNetwork(v: String) = editStream { wsTlsAlpn(it.putString("network", v)) }
+    fun setSecurity(v: String) = editStream { wsTlsAlpn(it.putString("security", v)) }
 
     fun setWsPath(v: String) = editStream { it.put("wsSettings", it.child("wsSettings").putString("path", v)) }
     fun setWsHost(v: String) = editStream { it.put("wsSettings", it.child("wsSettings").putString("host", v)) }
@@ -312,6 +396,16 @@ class InboundsViewModel @Inject constructor(
     fun setHttpHost(v: String) = editStream { it.put("httpupgradeSettings", it.child("httpupgradeSettings").putString("host", v)) }
 
     fun setTlsServerName(v: String) = editStream { it.put("tlsSettings", it.child("tlsSettings").putString("serverName", v)) }
+    fun setTlsCertFile(v: String) = editFirstCert { it.putString("certificateFile", v) }
+    fun setTlsKeyFile(v: String) = editFirstCert { it.putString("keyFile", v) }
+
+    /** The server certificate is certificates[0]; the panel refuses a TLS inbound without one. */
+    private fun editFirstCert(t: (JsonObject) -> JsonObject) = editStream { stream ->
+        val tls = stream.child("tlsSettings")
+        val certs = tls.array("certificates")
+        val first = (certs.firstOrNull() as? JsonObject) ?: JsonObject(emptyMap()).putString("usage", "encipherment")
+        stream.put("tlsSettings", tls.putArray("certificates", listOf(t(first)) + certs.drop(1)))
+    }
 
     fun setRealityDest(v: String) = editReality { it.putString("dest", v) }
     fun setRealityServerNames(v: String) = editReality { it.putStrings("serverNames", parseCsv(v)) }
@@ -342,22 +436,7 @@ class InboundsViewModel @Inject constructor(
         // Re-attach the clients array we hid from the editor (create → empty).
         val settings = settingsBase.put("clients", e.originalClients ?: JsonArray(emptyList()))
 
-        val gbBytes = (e.totalGb.toDoubleOrNull() ?: 0.0).let { (it * BYTES_PER_GB).toLong() }
-        val model = InboundModel(
-            id = e.id,
-            remark = e.remark.trim(),
-            enable = e.enable,
-            listen = e.listen.trim(),
-            port = e.port.toIntOrNull() ?: 0,
-            protocol = e.protocol,
-            expiryTime = e.expiryTime,
-            total = gbBytes,
-            trafficReset = e.trafficReset,
-            disableFlow = e.disableFlow,
-            settings = settings,
-            streamSettings = e.stream,
-            sniffing = e.sniffing,
-        )
+        val model = e.toInboundModel(settings)
         _state.update { s -> s.editor?.let { s.copy(editor = it.copy(saving = true, error = null)) } ?: s }
         viewModelScope.launch {
             val result = if (e.isNew) repo.addInbound(model) else repo.updateInbound(e.id, model)
@@ -392,16 +471,18 @@ class InboundsViewModel @Inject constructor(
         _state.update { s -> s.editor?.let { s.copy(editor = it.copy(error = msg)) } ?: s }
     }
 
-    private fun parse(text: String): JsonObject? = try {
-        prettyJson.parseToJsonElement(text.ifBlank { "{}" }) as? JsonObject
-    } catch (_: Exception) {
-        null
-    }
+    private fun parse(text: String): JsonObject? = parseJsonObject(text)
 
     private fun settingsWithoutClients(settings: JsonObject?): String {
         val obj = (settings ?: JsonObject(emptyMap())).put("clients", null)
         return prettyJson.encodeToString(JsonObject.serializer(), obj)
     }
+
+    /** WebSocket handshakes over HTTP/1.1; TLS's default h2 ALPN breaks it (panel #6782). */
+    private fun wsTlsAlpn(stream: JsonObject): JsonObject =
+        if (stream.string("network") == "ws" && stream.string("security") == "tls") {
+            stream.put("tlsSettings", stream.child("tlsSettings").putStrings("alpn", listOf("http/1.1")))
+        } else stream
 
     private fun defaultSniffing(): JsonObject =
         JsonObject(emptyMap())

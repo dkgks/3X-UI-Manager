@@ -3,6 +3,8 @@ package net.yukh.xui.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -33,9 +35,11 @@ private val XHTTP_MODES = listOf("auto", "packet-up", "stream-up", "stream-one")
  * Transport + security editor over an outbound's `streamSettings`, matching the
  * panel's outbound form (3x-ui flat model: wsSettings.host/path, kcpSettings.*,
  * tlsSettings/realitySettings as siblings). Preserves unknown keys via JsonEdit.
+ * Outbound-only (the client side of TLS); the inbound editor has its own form.
+ * [panel3100] = the panel is v3.10.0+, whose xray-core knows `useSystemCA`.
  */
 @Composable
-fun OutboundStreamSettings(draft: JsonObject, onChange: (JsonObject) -> Unit) {
+fun OutboundStreamSettings(draft: JsonObject, onChange: (JsonObject) -> Unit, panel3100: Boolean = true) {
     val stream = draft.child("streamSettings")
     fun put(child: String, obj: JsonObject) = onChange(draft.put("streamSettings", stream.put(child, obj)))
     fun putKey(key: String, value: String) = onChange(draft.put("streamSettings", stream.putString(key, value)))
@@ -125,6 +129,17 @@ fun OutboundStreamSettings(draft: JsonObject, onChange: (JsonObject) -> Unit) {
                 }
                 Field(tr("Pinned SHA256"), tls.string("pinnedPeerCertSha256")) {
                     put("tlsSettings", tls.putString("pinnedPeerCertSha256", it))
+                }
+                // xray-core 26.10.10 verifies against its bundled Mozilla roots unless this is set.
+                if (panel3100 || "useSystemCA" in tls) {
+                    SwitchRow(tr("Use system CA"), tls.bool("useSystemCA")) { on ->
+                        put("tlsSettings", if (on) tls.putBool("useSystemCA", true) else tls.put("useSystemCA", null))
+                    }
+                    Text(
+                        tr("Verify the server against the server OS's CA store instead of Xray's bundled roots — needed for a private CA. Needs panel v3.10.0."),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             "reality" -> {
