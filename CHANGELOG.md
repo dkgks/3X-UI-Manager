@@ -6,6 +6,14 @@ uses [Semantic Versioning](https://semver.org/).
 
 🇷🇺 [Версия на русском](CHANGELOG.ru.md)
 
+## [0.15.3] — 2026-10-13
+
+### Changed
+- **Balancers and the Observatory settings have their own «Balancers» menu item under Routing.** The Routing screen keeps the strategy, rules, route tester and the routing-script warning; rules can still target a balancer. The Observatory section has its own Save button, active only while its settings have unsaved changes.
+
+### Fixed
+- **The update dialog now lists the changes of every version since the installed one, not just the latest.** Each version has its own "Version X · date" heading, newest first, so updating over several versions no longer hides what the skipped ones changed.
+
 ## [0.15.2] — 2026-10-13
 
 ### Added

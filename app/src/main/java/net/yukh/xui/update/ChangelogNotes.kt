@@ -12,7 +12,7 @@ data class VersionNotes(
  * the installed one up to the latest, newest first. Pure, so it is unit-tested.
  */
 object ChangelogNotes {
-    const val PER_VERSION_CAP = 2000
+    const val PER_VERSION_CAP = 4000
     const val TOTAL_CAP = 8000
     const val FALLBACK_COUNT = 3
 

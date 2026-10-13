@@ -1,0 +1,1 @@
+Balancers and the Observatory settings have their own menu item under Routing, and the Observatory section has its own Save button. The in-app update dialog now lists the changes of every version since the installed one, newest first.
