@@ -149,7 +149,7 @@ fun RoutingScreen(onClose: () -> Unit, vm: RoutingViewModel = hiltViewModel()) {
                 val arr = routing.array("balancers").toMutableList()
                 val clean = normalizeBalancer(bal.draft)
                 if (bal.isNew) arr.add(clean) else arr[bal.index] = clean
-                vm.update(cfg.put("routing", routing.putArray("balancers", arr)))
+                vm.update(syncObservatories(cfg.put("routing", routing.putArray("balancers", arr))))
                 vm.closeBalancer()
                 vm.save()
             },
@@ -277,7 +277,8 @@ private fun RoutingBody(cfg: JsonObject, inboundOptions: List<Pair<String, Strin
     var showRouteTest by remember { mutableStateOf(false) }
 
     fun setRules(items: List<kotlinx.serialization.json.JsonElement>) = vm.update(cfg.put("routing", routing.putArray("rules", items)))
-    fun setBalancers(items: List<kotlinx.serialization.json.JsonElement>) = vm.update(cfg.put("routing", routing.putArray("balancers", items)))
+    fun setBalancers(items: List<kotlinx.serialization.json.JsonElement>) =
+        vm.update(syncObservatories(cfg.put("routing", routing.putArray("balancers", items))))
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -379,6 +380,8 @@ private fun RoutingBody(cfg: JsonObject, inboundOptions: List<Pair<String, Strin
         OutlinedButton(onClick = { vm.openBalancer(-1, JsonObject(emptyMap()), isNew = true) }) {
             Icon(Icons.Filled.Add, contentDescription = null); Text("  " + tr("Add balancer"))
         }
+
+        ObservatorySection(cfg, vm::update)
     }
 
     pendingRule?.let { idx ->
