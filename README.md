@@ -91,10 +91,11 @@ The upstream project lives at [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui
 ### Xray config (⋮ menu)
 Structured editors over the panel's Xray config — each round-trips the **whole** config, preserving sibling and unknown keys. Field sets mirror the panel's own forms. (Needs panel **v3.3.0+**.)
 - **Outbounds** — list (add / edit / delete / reorder) + per-protocol forms (vless, vmess, trojan, shadowsocks, socks, http, freedom, blackhole, wireguard) with transport + TLS/REALITY; **import from a `vless://` link**.
-- **Routing** — rules (source / dest / inbound → outbound or balancer, reorderable) + balancers (strategy / selector / fallback) + routing strategy.
+- **Routing** — rules (source / dest / inbound → outbound or balancer, reorderable) + routing strategy + route tester.
+- **Balancers** — balancers (strategy / selector / fallback) + the Observatory probe settings they drive (own Save button).
 - **DNS** — enable, DNS-level options, servers (bare string or full object), FakeDNS pools.
 - **General / Logs** — log levels, routing strategy, outbound test URL, traffic-stats toggles.
-- **Xray config (raw)** — the full config as JSON, a fallback for anything the forms don't cover (Observatory, advanced xHTTP, hysteria, reverse, …).
+- **Xray config (raw)** — the full config as JSON, a fallback for anything the forms don't cover (advanced xHTTP, hysteria, reverse, …).
 
 ### Backup / restore (⋮ menu)
 - **Back up** the panel's whole database (settings, inbounds, clients **and** the Xray config) to a file via the system file picker, and **restore** the panel from one. Engine-agnostic — the panel saves SQLite as `x-ui.db` and PostgreSQL as `x-ui.dump`, and imports either back. Restore confirms first and restarts Xray (a brief connection drop). Works with an API token.

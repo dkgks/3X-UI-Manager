@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
@@ -37,7 +40,10 @@ private val HTTP_METHODS = listOf("HEAD", "GET")
 /** The panel's Observatory tab: shows the one active observer of [cfg]; observers themselves
  *  are created and dropped by [syncObservatories] when balancers change. */
 @Composable
-internal fun ObservatorySection(cfg: JsonObject, onChange: (JsonObject) -> Unit) {
+internal fun ObservatorySection(
+    cfg: JsonObject, onChange: (JsonObject) -> Unit,
+    saveEnabled: Boolean, saving: Boolean, onSave: () -> Unit,
+) {
     val observatory = cfg.observatoryView()
     val burst = cfg.burstObservatoryView()
     SectionTitle(tr("Observatory"))
@@ -59,6 +65,9 @@ internal fun ObservatorySection(cfg: JsonObject, onChange: (JsonObject) -> Unit)
         BurstFields(burst) { key, value -> onChange(cfg.patchPingConfig(key, value)) }
     } else if (observatory != null) {
         ObservatoryFields(observatory) { key, value -> onChange(cfg.patchObservatory(key, value)) }
+    }
+    Button(onClick = onSave, enabled = saveEnabled, modifier = Modifier.fillMaxWidth()) {
+        if (saving) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp) else Text(tr("Save"))
     }
 }
 

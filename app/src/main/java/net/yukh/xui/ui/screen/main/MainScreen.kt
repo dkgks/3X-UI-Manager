@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.AllInbox
 import androidx.compose.material.icons.outlined.AltRoute
 import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.Backup
+import androidx.compose.material.icons.outlined.Balance
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Public
@@ -86,6 +87,7 @@ import net.yukh.xui.ui.screen.profiles.ProfileSwitcherSheet
 import net.yukh.xui.ui.screen.settings.AboutScreen
 import net.yukh.xui.ui.screen.settings.SettingsScreen
 import net.yukh.xui.ui.screen.xray.XrayConfigScreen
+import net.yukh.xui.ui.screen.xrayedit.BalancersScreen
 import net.yukh.xui.ui.screen.xrayedit.DnsScreen
 import net.yukh.xui.ui.screen.xrayedit.GeneralScreen
 import net.yukh.xui.ui.screen.xrayedit.GeodataScreen
@@ -132,6 +134,7 @@ fun MainScreen(
     var showXrayConfig by rememberSaveable { mutableStateOf(false) }
     var showOutbounds by rememberSaveable { mutableStateOf(false) }
     var showRouting by rememberSaveable { mutableStateOf(false) }
+    var showBalancers by rememberSaveable { mutableStateOf(false) }
     var showDns by rememberSaveable { mutableStateOf(false) }
     var showGeneral by rememberSaveable { mutableStateOf(false) }
     var showGeodata by rememberSaveable { mutableStateOf(false) }
@@ -202,6 +205,11 @@ fun MainScreen(
                             text = { Text(tr("Routing")) },
                             leadingIcon = { Icon(Icons.Outlined.AltRoute, contentDescription = null) },
                             onClick = { menuOpen = false; showRouting = true },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(tr("Balancers")) },
+                            leadingIcon = { Icon(Icons.Outlined.Balance, contentDescription = null) },
+                            onClick = { menuOpen = false; showBalancers = true },
                         )
                         DropdownMenuItem(
                             text = { Text(tr("DNS")) },
@@ -407,6 +415,11 @@ fun MainScreen(
     if (showRouting) {
         BackHandler(onBack = { showRouting = false })
         RoutingScreen(onClose = { showRouting = false })
+    }
+
+    if (showBalancers) {
+        BackHandler(onBack = { showBalancers = false })
+        BalancersScreen(onClose = { showBalancers = false })
     }
 
     if (showDns) {

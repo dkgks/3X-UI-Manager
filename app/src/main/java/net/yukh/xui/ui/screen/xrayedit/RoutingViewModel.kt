@@ -15,7 +15,6 @@ import net.yukh.xui.data.repo.PanelRepository
 import net.yukh.xui.data.repo.isUnsupportedByPanel
 
 data class RuleEdit(val index: Int, val isNew: Boolean, val draft: JsonObject)
-data class BalEdit(val index: Int, val isNew: Boolean, val draft: JsonObject)
 
 data class RoutingUiState(
     val loading: Boolean = true,
@@ -29,7 +28,6 @@ data class RoutingUiState(
     val error: String? = null,
     val savedMessage: String? = null,
     val editingRule: RuleEdit? = null,
-    val editingBalancer: BalEdit? = null,
     // Route test (panel 3.5.0): probe which outbound a destination resolves to.
     val routeTesting: Boolean = false,
     val routeTestResult: RouteTestResult? = null,
@@ -37,7 +35,7 @@ data class RoutingUiState(
     // Inbounds for the route tester's picker: (tag sent to the API, remark shown).
     val inboundOptions: List<Pair<String, String>> = emptyList(),
     /** Tags of outbounds injected from outbound subscriptions — selectable in
-     *  rules and balancers even though they aren't in the editable config. */
+     *  rules even though they aren't in the editable config. */
     val subscriptionOutboundTags: List<String> = emptyList(),
     /** Panel v3.8.0+: a rule can carry a panel-only comment. */
     val panel380: Boolean = false,
@@ -78,10 +76,6 @@ class RoutingViewModel @Inject constructor(
     fun openRule(index: Int, draft: JsonObject, isNew: Boolean) = _state.update { it.copy(editingRule = RuleEdit(index, isNew, draft)) }
     fun updateRuleDraft(d: JsonObject) = _state.update { it.copy(editingRule = it.editingRule?.copy(draft = d)) }
     fun closeRule() = _state.update { it.copy(editingRule = null) }
-
-    fun openBalancer(index: Int, draft: JsonObject, isNew: Boolean) = _state.update { it.copy(editingBalancer = BalEdit(index, isNew, draft)) }
-    fun updateBalDraft(d: JsonObject) = _state.update { it.copy(editingBalancer = it.editingBalancer?.copy(draft = d)) }
-    fun closeBalancer() = _state.update { it.copy(editingBalancer = null) }
 
     fun save() {
         val st = _state.value
