@@ -24,6 +24,9 @@ data class Node(
     // Route the panel→node API connection through this Xray outbound tag
     // (empty = direct). Panel v3.4.0.
     val outboundTag: String = "",
+    // "all" or "selected" (only inboundTags are synced); the update overwrites both.
+    val inboundSyncMode: String = "all",
+    val inboundTags: List<String> = emptyList(),
     // The node's stable panelGuid — used to attribute online clients to the
     // server that physically hosts them (panel v3.4.0). Empty on older panels.
     val guid: String = "",
@@ -55,6 +58,9 @@ data class Node(
         allowPrivateAddress = allowPrivateAddress,
         tlsVerifyMode = tlsVerifyMode,
         pinnedCertSha256 = pinnedCertSha256,
+        inboundSyncMode = inboundSyncMode,
+        inboundTags = inboundTags,
+        outboundTag = outboundTag,
     )
 }
 
@@ -89,5 +95,7 @@ data class NodeModel(
     val allowPrivateAddress: Boolean = false,
     val tlsVerifyMode: String = "verify",
     val pinnedCertSha256: String = "",
+    val inboundSyncMode: String = "all",
+    val inboundTags: List<String> = emptyList(),
     val outboundTag: String = "",
 )

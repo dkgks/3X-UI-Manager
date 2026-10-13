@@ -119,6 +119,12 @@ fun ClientEditorScreen(
                 onValueChange = onEmail,
                 label = { Text(tr("Email / name")) },
                 singleLine = true,
+                isError = state.masqueEmailInvalid,
+                supportingText = if (state.masqueEmailInvalid) {
+                    { Text(tr("MASQUE: client email cannot contain \":\"")) }
+                } else {
+                    null
+                },
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -189,6 +195,14 @@ fun ClientEditorScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            if (state.weeklyRenewal) {
+                Text(
+                    tr("Weekly renewal is on (set in the web panel). A reset period or a renewal day turns it off."),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             // ---- Renewal, reset cycle and devices (panel v3.7.0) ----
             Row(

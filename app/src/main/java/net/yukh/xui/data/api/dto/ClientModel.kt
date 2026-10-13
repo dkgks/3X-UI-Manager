@@ -2,6 +2,7 @@ package net.yukh.xui.data.api.dto
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 /**
  * Mirrors the panel's `model.Client` — the body shape for client create
@@ -40,6 +41,9 @@ data class ClientModel(
     val reset: Int = 0,
     val resetDay: Int = 0,
     val resetMax: Int = 0,
+    val resetWeekday: Int = 0,
+    // Null leaves it out (explicitNulls = false); the panel then clears the reverse tag.
+    val reverse: JsonObject? = null,
     val trafficReset: String = "never",
     val trafficResetDay: Int = 1,
     val limitHwid: Int = 0,
