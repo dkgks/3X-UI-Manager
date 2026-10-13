@@ -1,0 +1,1 @@
+Observatory settings on the Routing screen, as in panel 3.10.0. Fixed: a Least Load balancer (or Random / Round-robin with a fallback) made Xray fail to start because the app never created the observatory it needs; the observer is now created, kept in sync and removed with the balancers, as in the panel.
