@@ -77,6 +77,10 @@ private val editorJson = Json { prettyPrint = true; isLenient = true }
 private fun pretty(o: JsonObject): String =
     editorJson.encodeToString(JsonElement.serializer(), o)
 
+/** Raw-form protocols whose streamSettings still matter: hysteria and masque (panel 3.10) carry
+ *  TLS / masqueSettings there. Not in PROXY_PROTOCOLS, which would also turn on Mux. */
+private val RAW_STREAM_PROTOCOLS = PROXY_PROTOCOLS + setOf("hysteria", "masque")
+
 private fun JsonObject.settings(): JsonObject = child("settings")
 private fun JsonObject.putSettings(s: JsonObject): JsonObject = put("settings", s)
 
@@ -395,7 +399,7 @@ private fun RawSettingsForm(draft: JsonObject, protocol: String, onChange: (Json
     )
     settingsErr?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 
-    if (protocol in PROXY_PROTOCOLS) {
+    if (protocol in RAW_STREAM_PROTOCOLS) {
         var streamText by remember(protocol) { mutableStateOf(pretty(draft.child("streamSettings"))) }
         var streamErr by remember(protocol) { mutableStateOf<String?>(null) }
         OutlinedTextField(

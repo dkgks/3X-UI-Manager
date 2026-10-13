@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
@@ -146,7 +147,8 @@ fun RoutingScreen(onClose: () -> Unit, vm: RoutingViewModel = hiltViewModel()) {
             onDone = {
                 val routing = cfg.child("routing")
                 val arr = routing.array("balancers").toMutableList()
-                if (bal.isNew) arr.add(bal.draft) else arr[bal.index] = bal.draft
+                val clean = normalizeBalancer(bal.draft)
+                if (bal.isNew) arr.add(clean) else arr[bal.index] = clean
                 vm.update(cfg.put("routing", routing.putArray("balancers", arr)))
                 vm.closeBalancer()
                 vm.save()
@@ -281,6 +283,18 @@ private fun RoutingBody(cfg: JsonObject, inboundOptions: List<Pair<String, Strin
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        if (routing.string("script").isNotBlank()) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    tr("A routing script is set under General / Logs, so Xray ignores these rules."),
+                    modifier = Modifier.padding(12.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+        }
         LabeledDropdown(tr("Routing strategy"), routing.string("domainStrategy").ifBlank { "AsIs" }, ROUTING_DOMAIN_STRATEGY) {
             vm.update(cfg.put("routing", routing.putString("domainStrategy", it)))
         }
@@ -447,6 +461,18 @@ private fun RuleEditor(
     }
 }
 
+/** Strategy as the panel writes it: none for random, `settings` only for leastLoad. The
+ *  draft keeps them while the type is switched, so going back to leastLoad restores them. */
+internal fun normalizeBalancer(b: JsonObject): JsonObject {
+    val strategy = b["strategy"] as? JsonObject ?: return b
+    val type = strategy.string("type")
+    return when {
+        type.isBlank() || type == "random" -> b.put("strategy", null)
+        type != "leastLoad" -> b.put("strategy", strategy.put("settings", null))
+        else -> b
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BalancerEditor(
@@ -466,7 +492,7 @@ private fun BalancerEditor(
             Field(tr("Tag"), draft.string("tag")) { onChange(draft.putString("tag", it)) }
             val strategy = draft.child("strategy").string("type").ifBlank { "random" }
             LabeledDropdown(tr("Strategy"), strategy, BAL_STRATEGY) {
-                onChange(if (it == "random") draft.put("strategy", null) else draft.put("strategy", JsonObject(emptyMap()).putString("type", it)))
+                onChange(draft.put("strategy", draft.child("strategy").putString("type", it)))
             }
             Field(tr("Selector (comma-separated)"), draft.strings("selector").joinToString(", ")) {
                 val l = parseCsv(it); onChange(draft.putStrings("selector", l))
