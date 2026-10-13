@@ -1,6 +1,12 @@
 package net.yukh.xui.data.api.dto
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Row in GET /panel/api/clients/list on 3x-ui v3.x.
@@ -43,6 +49,10 @@ data class Client(
     // forwarded ports.
     val resetDay: Int = 0,
     val resetMax: Int = 0,
+    // Panel v3.9.0 weekly renewal (1-7 = Mon-Sun, 0 = off) and the VLESS simple
+    // reverse proxy ({"tag":…} or null). The panel's update overwrites both from the body.
+    val resetWeekday: Int = 0,
+    val reverse: JsonElement? = null,
     val trafficReset: String = "never",
     val trafficResetDay: Int = 1,
     val limitHwid: Int = 0,
@@ -91,6 +101,8 @@ data class Client(
         reset = reset,
         resetDay = resetDay,
         resetMax = resetMax,
+        resetWeekday = resetWeekday,
+        reverse = reverseObject(reverse),
         trafficReset = trafficReset,
         trafficResetDay = trafficResetDay,
         limitHwid = limitHwid,
@@ -98,4 +110,17 @@ data class Client(
         createdAt = createdAt,
         updatedAt = updatedAt,
     )
+}
+
+/** The stored reverse as the object the update body takes; an empty or tag-less one
+ *  is dropped (the panel clears it either way). Older panels sent it as JSON text. */
+private fun reverseObject(raw: JsonElement?): JsonObject? {
+    val obj = when (raw) {
+        is JsonObject -> raw
+        is JsonPrimitive -> raw.contentOrNull?.takeIf { raw.isString && it.isNotBlank() }
+            ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+        else -> null
+    } ?: return null
+    val tag = runCatching { obj["tag"]?.jsonPrimitive?.contentOrNull }.getOrNull()
+    return obj.takeIf { !tag.isNullOrBlank() }
 }

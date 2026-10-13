@@ -41,6 +41,8 @@ data class ClientsUiState(
     val linksLoading: Boolean = false,
     val linksError: String? = null,
     val selectedSubUrl: String? = null,
+    /** JSON subscription URL (null when the panel doesn't serve one): MASQUE is only there. */
+    val selectedJsonSubUrl: String? = null,
     val subUrlChecked: Boolean = false,
     /** Customer's-eye subscription status (sub server `?format=info`, best-effort). */
     val selectedSubInfo: SubInfo? = null,
@@ -172,7 +174,19 @@ data class ClientEditorState(
     val error: String? = null,
 ) {
     val canSave: Boolean
-        get() = !saving && email.isNotBlank() && (!isNew || selectedInboundIds.isNotEmpty())
+        get() = !saving && email.isNotBlank() && (!isNew || selectedInboundIds.isNotEmpty()) &&
+            !masqueEmailInvalid
+
+    /** A selected inbound is MASQUE, which logs users in with the email as the
+     *  Basic-auth name: panel 3.10.0 refuses an email holding ":" there. */
+    val masqueEmailInvalid: Boolean
+        get() = ':' in email &&
+            availableInbounds.any { it.id in selectedInboundIds && it.protocol == "masque" }
+
+    /** The client renews weekly (panel v3.9.0, set in the web panel). The panel refuses
+     *  it next to a reset period or a renewal day, so setting either turns it off. */
+    val weeklyRenewal: Boolean
+        get() = (source?.resetWeekday ?: 0) > 0
 
     /** A selected inbound is MTProto — show the secret / ad-tag fields. */
     val isMtproto: Boolean
@@ -190,6 +204,58 @@ data class ClientEditorState(
      *  limits there (panel v3.8.0); the limit belongs on the inbound. */
     val isTuic: Boolean
         get() = availableInbounds.any { it.id in selectedInboundIds && it.protocol == "tuic" }
+}
+
+/**
+ * The create/update body for this form. An edit starts from the stored client so
+ * fields the form doesn't show (weekly renewal, VLESS reverse, keys) survive.
+ * [newSubId] is used on create only.
+ */
+internal fun ClientEditorState.toClientModel(newSubId: String = ""): ClientModel {
+    val e = this
+    val gbBytes = (e.totalGb.toDoubleOrNull() ?: 0.0).let { (it * BYTES_PER_GB).toLong() }
+    val base = e.source?.toModel() ?: ClientModel()
+    val reset = e.reset.toIntOrNull() ?: 0
+    val resetDay = (e.resetDay.toIntOrNull() ?: 0).coerceIn(0, 31)
+    return base.copy(
+        email = e.email.trim(),
+        enable = e.enable,
+        limitIp = e.limitIp.toIntOrNull() ?: 0,
+        totalGB = gbBytes,
+        expiryTime = e.expiryTime,
+        reset = reset,
+        // 3.7.0: a day of 0 keeps the old rolling interval, so the fields
+        // coexist; the panel picks whichever is set.
+        resetDay = resetDay,
+        // The panel refuses weekly renewal next to a period or a day: those win.
+        resetWeekday = if (reset > 0 || resetDay > 0) 0 else base.resetWeekday,
+        resetMax = (e.resetMax.toIntOrNull() ?: 0).coerceAtLeast(0),
+        trafficReset = e.trafficReset,
+        trafficResetDay = (e.trafficResetDay.toIntOrNull() ?: 1).coerceIn(1, 31),
+        limitHwid = (e.limitHwid.toIntOrNull() ?: 0).coerceAtLeast(0),
+        forwardedPorts = if (e.isAmneziawg) e.forwardedPorts.trim() else base.forwardedPorts,
+        tgId = e.tgId.toLongOrNull() ?: 0,
+        group = e.group.trim(),
+        comment = e.comment.trim(),
+        secret = if (e.isMtproto) e.secret.trim() else base.secret,
+        adTag = if (e.isMtproto) e.adTag.trim() else base.adTag,
+        allowedIPs = if (e.isWireguard) {
+            e.allowedIps.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        } else {
+            base.allowedIPs
+        },
+        // Sent whenever a tunnel inbound is selected: panel v3.8.0 treats an explicit
+        // 0 as "off" and a missing value as "keep", so other clients keep theirs.
+        keepAlive = if (e.isWireguard || e.isAmneziawg) {
+            (e.keepAlive.toIntOrNull() ?: 0).coerceIn(0, 65535)
+        } else {
+            base.keepAlive
+        },
+        // Mint the subscription id ourselves on create, in the panel's own
+        // 16-char format. Sending it empty makes the panel fall back to a
+        // uuid, which is what put a UUID-shaped id in the subscription URL.
+        subId = if (e.isNew) newSubId else base.subId,
+    )
 }
 
 @HiltViewModel
@@ -298,6 +364,7 @@ class ClientsViewModel @Inject constructor(
                 linksLoading = true,
                 linksError = null,
                 selectedSubUrl = null,
+                selectedJsonSubUrl = null,
                 subUrlChecked = false,
                 selectedSubInfo = null,
                 happLinkEnabled = null,
@@ -319,7 +386,8 @@ class ClientsViewModel @Inject constructor(
         // fetch in parallel and degrade silently if unavailable (old panels).
         viewModelScope.launch {
             val subUrl = client?.let { repo.getSubscriptionUrl(it) }
-            _state.update { it.copy(selectedSubUrl = subUrl, subUrlChecked = true) }
+            val jsonSubUrl = client?.let { repo.getJsonSubscriptionUrl(it) }
+            _state.update { it.copy(selectedSubUrl = subUrl, selectedJsonSubUrl = jsonSubUrl, subUrlChecked = true) }
         }
         // Customer's-eye live status (v3.6.0 sub server) — best-effort, silent on
         // failure so setups where the sub port isn't reachable just omit it.
@@ -347,6 +415,7 @@ class ClientsViewModel @Inject constructor(
                 linksLoading = false,
                 linksError = null,
                 selectedSubUrl = null,
+                selectedJsonSubUrl = null,
                 subUrlChecked = false,
                 selectedSubInfo = null,
                 happLinkEnabled = null,
@@ -533,79 +602,45 @@ class ClientsViewModel @Inject constructor(
     fun saveEditor() {
         val e = _state.value.editor ?: return
         if (!e.canSave) return
-        val gbBytes = (e.totalGb.toDoubleOrNull() ?: 0.0).let { (it * BYTES_PER_GB).toLong() }
-        val base = e.source?.toModel() ?: ClientModel()
-        val model = base.copy(
-            email = e.email.trim(),
-            enable = e.enable,
-            limitIp = e.limitIp.toIntOrNull() ?: 0,
-            totalGB = gbBytes,
-            expiryTime = e.expiryTime,
-            reset = e.reset.toIntOrNull() ?: 0,
-            // 3.7.0: a day of 0 keeps the old rolling interval, so the fields
-            // coexist; the panel picks whichever is set.
-            resetDay = (e.resetDay.toIntOrNull() ?: 0).coerceIn(0, 31),
-            resetMax = (e.resetMax.toIntOrNull() ?: 0).coerceAtLeast(0),
-            trafficReset = e.trafficReset,
-            trafficResetDay = (e.trafficResetDay.toIntOrNull() ?: 1).coerceIn(1, 31),
-            limitHwid = (e.limitHwid.toIntOrNull() ?: 0).coerceAtLeast(0),
-            forwardedPorts = if (e.isAmneziawg) e.forwardedPorts.trim() else base.forwardedPorts,
-            tgId = e.tgId.toLongOrNull() ?: 0,
-            group = e.group.trim(),
-            comment = e.comment.trim(),
-            secret = if (e.isMtproto) e.secret.trim() else base.secret,
-            adTag = if (e.isMtproto) e.adTag.trim() else base.adTag,
-            allowedIPs = if (e.isWireguard) {
-                e.allowedIps.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-            } else {
-                base.allowedIPs
-            },
-            // Sent whenever a tunnel inbound is selected: panel v3.8.0 treats an explicit
-            // 0 as "off" and a missing value as "keep", so other clients keep theirs.
-            keepAlive = if (e.isWireguard || e.isAmneziawg) {
-                (e.keepAlive.toIntOrNull() ?: 0).coerceIn(0, 65535)
-            } else {
-                base.keepAlive
-            },
-            // Mint the subscription id ourselves on create, in the panel's own
-            // 16-char format. Sending it empty makes the panel fall back to a
-            // uuid, which is what put a UUID-shaped id in the subscription URL.
-            subId = if (e.isNew) randomSubId() else base.subId,
-        )
+        val model = e.toClientModel(newSubId = if (e.isNew) randomSubId() else "")
         _state.update { s -> s.editor?.let { s.copy(editor = it.copy(saving = true, error = null)) } ?: s }
         viewModelScope.launch {
-            val result = if (e.isNew) {
+            if (e.isNew) {
                 repo.addClient(model, e.selectedInboundIds.toList())
-            } else {
-                // Update by the ORIGINAL email (the lookup key); model.email carries
-                // the possibly-renamed value. Then reconcile inbound membership.
-                val origEmail = e.source?.email ?: e.email.trim()
-                val newEmail = model.email
-                repo.updateClient(origEmail, model).also { r ->
-                    if (r.isSuccess) {
-                        val original = e.source?.inboundIds?.toSet().orEmpty()
-                        val selected = e.selectedInboundIds
-                        val added = (selected - original).toList()
-                        val removed = (original - selected).toList()
-                        if (added.isNotEmpty()) repo.attachClient(newEmail, added)
-                        if (removed.isNotEmpty()) repo.detachClient(newEmail, removed)
-                    }
-                }
+                    .onSuccess { finishSave("Client created") }
+                    .onFailure { ex -> failSave(ex) }
+                return@launch
             }
-            result
-                .onSuccess {
-                    _state.update {
-                        it.copy(
-                            editor = null,
-                            transientMessage = if (e.isNew) "Client created" else "Client updated",
-                        )
-                    }
-                    load(force = true)
-                }
-                .onFailure { ex ->
-                    _state.update { s -> s.editor?.let { s.copy(editor = it.copy(saving = false, error = ex.message)) } ?: s }
-                }
+            // Update by the ORIGINAL email (the lookup key); model.email carries
+            // the possibly-renamed value. Then reconcile inbound membership.
+            val origEmail = e.source?.email ?: e.email.trim()
+            val updated = repo.updateClient(origEmail, model)
+            if (updated.isFailure) {
+                failSave(updated.exceptionOrNull())
+                return@launch
+            }
+            val original = e.source?.inboundIds?.toSet().orEmpty()
+            val added = (e.selectedInboundIds - original).toList()
+            val removed = (original - e.selectedInboundIds).toList()
+            val membershipError = listOfNotNull(
+                added.takeIf { it.isNotEmpty() }?.let { repo.attachClient(model.email, it).exceptionOrNull() },
+                removed.takeIf { it.isNotEmpty() }?.let { repo.detachClient(model.email, it).exceptionOrNull() },
+            ).firstOrNull()
+            // The edit itself is saved; the panel refused only the inbound change.
+            finishSave(
+                if (membershipError == null) "Client updated"
+                else "Client updated, but the inbound change failed: ${membershipError.message}",
+            )
         }
+    }
+
+    private fun finishSave(message: String) {
+        _state.update { it.copy(editor = null, transientMessage = message) }
+        load(force = true)
+    }
+
+    private fun failSave(ex: Throwable?) {
+        _state.update { s -> s.editor?.let { s.copy(editor = it.copy(saving = false, error = ex?.message)) } ?: s }
     }
 
     fun setSearchQuery(q: String) = _state.update { it.copy(searchQuery = q) }

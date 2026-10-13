@@ -375,6 +375,7 @@ fun MainScreen(
             onEnable = nodesVm::setEnable,
             onAllowPrivate = nodesVm::setAllowPrivate,
             onTlsVerifyMode = nodesVm::setTlsVerifyMode,
+            onPinnedCert = nodesVm::setPinnedCert,
             onOutboundTag = nodesVm::setOutboundTag,
             onSave = nodesVm::saveEditor,
             onDelete = { nodesVm.deleteNode(editor.id) },
