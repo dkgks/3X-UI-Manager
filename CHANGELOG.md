@@ -13,6 +13,7 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **The update dialog now lists the changes of every version since the installed one, not just the latest.** Each version has its own "Version X · date" heading, newest first, so updating over several versions no longer hides what the skipped ones changed.
+- **After saving Xray settings the app no longer asks to restart Xray.** Since panel 3.3.1 the panel applies the change itself on save — live through the Xray API where it can (inbounds, outbounds, routing, balancers), restarting Xray only when a change can't be applied live. The inbound save prompt no longer claims Xray will restart. Outbound-subscription refreshes, moves and deletes are applied by the panel within 30 seconds; only editing a subscription still needs a restart, and the app says so.
 
 ## [0.15.2] — 2026-10-13
 
