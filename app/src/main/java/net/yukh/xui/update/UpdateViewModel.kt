@@ -58,12 +58,15 @@ class UpdateViewModel @Inject constructor(
 
     private fun channel(): UpdateChannel = UpdateChannel.from(settings.getUpdateChannel())
 
-    /** Swap the English release body for the changelog section in the UI language,
-     *  and un-wrap its 80-col hard breaks so the dialog doesn't break mid-sentence. */
+    /** Swap the English release body for the changelog sections in the UI language —
+     *  every version since the installed one — and un-wrap their 80-col hard breaks. */
     private suspend fun localized(release: AppRelease): AppRelease {
         val russian = resolveLanguage(settings.getLanguage(), java.util.Locale.getDefault().language) == LANG_RU
-        val notes = UpdateChecker.localizedNotes(release.version, russian, channel()) ?: release.notes
-        return release.copy(notes = UpdateChecker.reflowNotes(notes))
+        val changelog = UpdateChecker.localizedChangelog(release.version, russian, channel())
+        val changes = changelog?.let {
+            ChangelogNotes.select(ChangelogNotes.parse(it), currentVersion(), release.version)
+        }.orEmpty().map { it.copy(body = UpdateChecker.reflowNotes(it.body)) }
+        return release.copy(notes = UpdateChecker.reflowNotes(release.notes), changes = ChangelogNotes.cap(changes))
     }
 
     /** Silent check for startup — only surfaces a dialog when a newer build exists

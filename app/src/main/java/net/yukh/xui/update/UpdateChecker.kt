@@ -11,6 +11,7 @@ import org.json.JSONObject
 data class AppRelease(
     val version: String,   // e.g. "0.5.5" (the tag without the leading "v")
     val notes: String,     // release description (markdown)
+    val changes: List<VersionNotes> = emptyList(),  // changelog since the installed version, newest first
     val apkUrl: String?,   // download URL of the .apk asset, or null if missing
     val pageUrl: String,   // release web page (fallback link)
 )
@@ -60,14 +61,13 @@ object UpdateChecker {
     }
 
     /**
-     * The changelog section for [version] in the app's language — the release body
+     * The whole changelog in the app's language at tag v[version] — the release body
      * is English-only, but we keep a Russian changelog too, so the "what's new"
-     * shown in the dialog can match the UI language. Reads the raw
-     * `CHANGELOG.ru.md` / `CHANGELOG.md` at the version tag and extracts its
-     * `## [version]` block. Returns null on any failure → caller keeps the
-     * release body as a fallback.
+     * shown in the dialog can match the UI language. Read from the latest tag, it
+     * holds every version the user may have skipped. Returns null on any failure →
+     * caller keeps the release body as a fallback.
      */
-    suspend fun localizedNotes(version: String, russian: Boolean, channel: UpdateChannel): String? =
+    suspend fun localizedChangelog(version: String, russian: Boolean, channel: UpdateChannel): String? =
         withContext(Dispatchers.IO) {
             val file = if (russian) "CHANGELOG.ru.md" else "CHANGELOG.md"
             val url = if (channel == UpdateChannel.TESTING) {
@@ -78,22 +78,10 @@ object UpdateChecker {
             val req = Request.Builder().url(url).build()
             runCatching {
                 client.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) return@use null
-                    extractSection(resp.body?.string() ?: return@use null, version)
+                    if (!resp.isSuccessful) null else resp.body?.string()
                 }
             }.getOrNull()
         }
-
-    /** Pull the "## [version] …" block out of a Keep-a-Changelog file. */
-    private fun extractSection(changelog: String, version: String): String? {
-        val lines = changelog.lines()
-        val start = lines.indexOfFirst { it.startsWith("## [$version]") }
-        if (start < 0) return null
-        val rest = lines.drop(start + 1)
-        val end = rest.indexOfFirst { it.startsWith("## [") }
-        val body = (if (end < 0) rest else rest.take(end)).joinToString("\n").trim()
-        return body.ifEmpty { null }
-    }
 
     private val NUMBERED = Regex("^\\d+[.)]\\s")
     private val BLANK_RUN = Regex("\n{3,}")

@@ -36,13 +36,24 @@ fun UpdateDialogHost(vm: UpdateViewModel) {
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        "${tr("Version")} ${s.release.version}",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    val notes = s.release.notes.trim()
-                    if (notes.isNotBlank()) {
-                        Text(notes, style = MaterialTheme.typography.bodySmall)
+                    if (s.release.changes.isEmpty()) {
+                        Text(
+                            "${tr("Version")} ${s.release.version}",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        val notes = s.release.notes.trim()
+                        if (notes.isNotBlank()) {
+                            Text(notes, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    s.release.changes.forEach { change ->
+                        Text(
+                            listOfNotNull("${tr("Version")} ${change.version}", change.date).joinToString(" · "),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        if (change.body.isNotBlank()) {
+                            Text(change.body, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             },
