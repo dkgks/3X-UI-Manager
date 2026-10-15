@@ -9,6 +9,7 @@ import kotlin.math.ln
 import kotlin.math.pow
 import net.yukh.xui.i18n.LANG_EN
 import net.yukh.xui.i18n.LANG_RU
+import net.yukh.xui.i18n.LANG_ZH
 import net.yukh.xui.i18n.tr
 
 private val units = arrayOf("B", "KB", "MB", "GB", "TB", "PB")
@@ -84,7 +85,11 @@ fun Long.formatExpiryDays(lang: String = LANG_EN): String {
     if (this == 0L) return tr(lang, "Never")
     val days = (this - System.currentTimeMillis()) / 86_400_000L
     if (days < 0) return tr(lang, "Expired")
-    val unit = if (lang == LANG_RU) "дн." else "d"
+    val unit = when (lang) {
+        LANG_RU -> "дн."
+        LANG_ZH -> "天"
+        else -> "d"
+    }
     return "$days $unit"
 }
 

@@ -62,7 +62,7 @@ class UpdateViewModel @Inject constructor(
      *  every version since the installed one — and un-wrap their 80-col hard breaks. */
     private suspend fun localized(release: AppRelease): AppRelease {
         val russian = resolveLanguage(settings.getLanguage(), java.util.Locale.getDefault().language) == LANG_RU
-        val changelog = UpdateChecker.localizedChangelog(release.version, russian, channel())
+        val changelog = UpdateChecker.localizedChangelog(release.tag, russian, channel())
         val changes = changelog?.let {
             ChangelogNotes.select(ChangelogNotes.parse(it), currentVersion(), release.version)
         }.orEmpty().map { it.copy(body = UpdateChecker.reflowNotes(it.body)) }
