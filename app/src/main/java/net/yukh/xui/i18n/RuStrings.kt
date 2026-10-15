@@ -610,8 +610,7 @@ val ruStrings: Map<String, String> = mapOf(
     "Clients are managed on the Clients tab and are kept as-is." to
         "Клиентами управляет вкладка Clients, здесь они не затрагиваются.",
     "Create inbound?" to "Создать inbound?",
-    "Apply changes to this inbound? Xray will restart." to
-        "Применить изменения к этому inbound? Xray перезапустится.",
+    "Apply changes to this inbound?" to "Применить изменения к этому inbound?",
     "This removes the inbound and all its clients. This can't be undone." to
         "Это удалит inbound и всех его клиентов. Отменить нельзя.",
 
@@ -809,4 +808,83 @@ val ruStrings: Map<String, String> = mapOf(
         "API-токен больше не действителен. Переподключитесь с рабочим.",
     "Your session is no longer valid. Sign in again." to
         "Сессия больше не действительна. Войдите снова.",
+
+    // 0.15.1 — xray editors
+    "ID" to "ID",
+    "The name a Lua DNS script uses to pick this server" to "Имя, по которому DNS-скрипт на Lua выбирает этот сервер",
+    "Lua Script" to "Lua-скрипт",
+    "Path to a .lua file defining HandleDNSQuery, absolute or relative to the Xray bin folder. The script then answers every query and reaches the servers only through its own code. Xray will not start if the file is missing or invalid." to
+        "Путь к файлу .lua с функцией HandleDNSQuery — абсолютный или относительно папки bin Xray. Скрипт отвечает на все запросы и обращается к серверам только из своего кода. Xray не запустится, если файл отсутствует или содержит ошибки.",
+    "Routing Script" to "Скрипт маршрутизации",
+    "Path to a .lua file defining HandleRoute, absolute or relative to the Xray bin folder. The script then picks every route and Xray ignores all routing rules, the panel's api rule included: send the api inbound to the api outbound or traffic stats and live client changes stop. Xray will not start if the file is missing or invalid." to
+        "Путь к файлу .lua с функцией HandleRoute — абсолютный или относительно папки bin Xray. Скрипт выбирает каждый маршрут, а Xray игнорирует все правила маршрутизации, включая правило api панели: направляйте входящий api на исходящий api, иначе остановятся статистика трафика и применение изменений клиентов на лету. Xray не запустится, если файл отсутствует или содержит ошибки.",
+    "A routing script is set under General / Logs, so Xray ignores these rules." to
+        "В разделе «Общее / Логи» задан скрипт маршрутизации, поэтому Xray игнорирует эти правила.",
+    // 0.15.1 — clients & nodes
+    "MASQUE: client email cannot contain \":\"" to "MASQUE: email клиента не может содержать «:»",
+    "Weekly renewal is on (set in the web panel). A reset period or a renewal day turns it off." to
+        "Включено еженедельное продление (задано в веб-панели). Период сброса или день продления его отключат.",
+    "JSON subscription" to "JSON-подписка",
+    "Xray JSON configs. MASQUE connections are only in this one." to
+        "Конфигурации Xray в JSON. Подключения MASQUE есть только в ней.",
+    "This link carries post-quantum keys and is too dense for a QR code — copy or share it instead." to
+        "В ссылке постквантовые ключи, QR-код получится слишком плотным — скопируйте её или отправьте.",
+    "Certificate SHA-256 pin" to "Отпечаток SHA-256 сертификата",
+    "SHA-256 of the node's certificate, hex or base64." to "SHA-256 сертификата узла, hex или base64.",
+    // 0.15.1 — inbounds
+    "Address pool" to "Пул адресов",
+    "Tunnel addresses are leased from these prefixes — at most one IPv4 and one IPv6." to
+        "Адреса туннелей выдаются из этих префиксов — не более одного IPv4 и одного IPv6.",
+    "MASQUE clients sign in with email and password. They get the connection from the JSON subscription: MASQUE has no share link." to
+        "Клиенты MASQUE входят по email и паролю. Подключение они получают из JSON-подписки: ссылки для MASQUE нет.",
+    "XDRIVE storage is edited in the stream settings JSON below. Its security stays None: Xray would read TLS here as the storage API's client TLS." to
+        "Хранилище XDRIVE настраивается в JSON stream settings ниже. Безопасность остаётся None: Xray принял бы TLS здесь за клиентский TLS к API хранилища.",
+    "Certificate file" to "Файл сертификата",
+    "Key file" to "Файл ключа",
+    "Use system CA" to "Использовать системные CA",
+    "Verify the server against the server OS's CA store instead of Xray's bundled roots — needed for a private CA. Needs panel v3.10.0." to
+        "Проверять сервер по хранилищу CA операционной системы сервера, а не по встроенным корням Xray — нужно для частного CA. Требуется панель v3.10.0.",
+    // observatory
+    "Observatory" to "Обсерватория",
+    "No connection observer is active. One is added automatically when you create a Least Ping or Least Load balancer — or a Random / Round-robin balancer with a fallback — so observer-backed balancers can check outbound health before choosing a target." to
+        "Нет активного наблюдателя соединений. Он добавляется автоматически при создании балансировщика Least Ping или Least Load — либо Random / Round-robin с fallback — чтобы балансировщики с наблюдателем могли проверять состояние исходящих перед выбором цели.",
+    "Observers are managed automatically from your balancers. Tune how they probe below — the watched outbounds follow your balancer selectors." to
+        "Наблюдатели управляются автоматически на основе ваших балансировщиков. Ниже можно настроить, как они опрашивают; отслеживаемые исходящие следуют за селекторами балансировщика.",
+    "This config contains both Observatory and Burst Observatory. Xray uses one global observer, so this mixed legacy state is not supported; saving balancers will normalize it to one observer." to
+        "В этой конфигурации одновременно есть Observatory и Burst Observatory. Xray использует один глобальный наблюдатель, поэтому такое устаревшее смешанное состояние не поддерживается; сохранение балансировщиков нормализует его до одного наблюдателя.",
+    "Watched Outbounds" to "Отслеживаемые исходящие",
+    "Outbound tags this observer probes. Managed automatically from your balancers." to
+        "Теги исходящих, которые опрашивает этот наблюдатель. Управляется автоматически на основе ваших балансировщиков.",
+    "Probe URL" to "URL пробы",
+    "URL fetched to measure each outbound. Should return HTTP 204." to
+        "URL, запрашиваемый для измерения каждого исходящего. Должен возвращать HTTP 204.",
+    "Probe Interval" to "Интервал пробы",
+    "How often to probe each outbound, e.g. 30s, 1m, 2h45m." to "Как часто опрашивать каждый исходящий, например 30s, 1m, 2h45m.",
+    "Concurrent Probing" to "Параллельные пробы",
+    "Probe all watched outbounds at once instead of one-by-one. Faster, but more visible on the network." to
+        "Опрашивать все отслеживаемые исходящие сразу, а не по одному. Быстрее, но заметнее в сети.",
+    "Probe Destination" to "Назначение пробы",
+    "Connectivity Check" to "Проверка связи",
+    "Optional local-network check URL, tried only after the destination fails. Leave empty to skip." to
+        "Необязательный URL проверки локальной сети, используется только после сбоя назначения. Оставьте пустым, чтобы пропустить.",
+    "Average time between probes per outbound, e.g. 1m. Minimum 10s." to
+        "Среднее время между пробами для каждого исходящего, например 1m. Минимум 10s.",
+    "Probe Timeout" to "Тайм-аут пробы",
+    "How long to wait for a probe before it counts as failed, e.g. 5s." to
+        "Сколько ждать ответа на пробу, прежде чем считать её неуспешной, например 5s.",
+    "Sampling Count" to "Размер выборки",
+    "Number of recent probe results kept to score each outbound." to
+        "Сколько последних результатов проб хранится для оценки каждого исходящего.",
+    "HTTP Method" to "Метод HTTP",
+    "HTTP method used for probes." to "Метод HTTP, используемый для проб.",
+
+    // apply on save
+    "Saved and applied" to "Сохранено и применено",
+    "panel's Xray Configuration page. The panel applies it on save — live where it can, restarting Xray only when a change needs it." to
+        "страница Xray Configuration в панели. Панель применяет его при сохранении — на лету, где возможно, и перезапускает Xray, только если изменение этого требует.",
+    "This replaces the panel's Xray configuration and applies it right away. A broken config can take Xray down." to
+        "Это заменит конфигурацию Xray в панели и сразу применит её. Сломанный конфиг может уронить Xray.",
+    "Saved — the panel applies it within 30 s" to "Сохранено — панель применит это в течение 30 с",
+    "Done — the panel applies it within 30 s" to "Готово — панель применит это в течение 30 с",
+    "Refreshed — the panel applies it within 30 s" to "Обновлено — панель применит это в течение 30 с",
 )

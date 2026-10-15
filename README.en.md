@@ -2,6 +2,8 @@
 
 Native mobile clients for managing [3x-ui](https://github.com/MHSanaei/3x-ui) panels over the REST API — dashboard, inbounds, clients (with QR sharing), nodes, and the Xray config, on the go. **Multi-instance: connect to several panels and switch between them from one app.**
 
+> ✅ **Compatible with 3x-ui panels up to v3.10.0.** The app speaks the panel's stable REST API, so a new panel release does **not** require a new app version — no need to wait for an app update when the panel bumps (the rare exceptions are noted in this app's release notes). Panel **3.10.0** is one: creating Shadowsocks inbounds and MASQUE support need app **v0.15.1** or newer.
+
 This branch (`main`) holds the **Android** app (Kotlin + Jetpack Compose), built straight from the repository root.
 
 [![Get it on F-Droid](https://fdroid.gitlab.io/artwork/badge/get-it-on.png)](https://f-droid.org/packages/net.yukh.xui)
@@ -19,7 +21,7 @@ This branch (`main`) holds the **Android** app (Kotlin + Jetpack Compose), built
 - **[Obtainium](https://github.com/ImranR98/Obtainium)** — install and auto-update straight from GitHub Releases: add the app by its repo URL `https://github.com/yukh975/3X-UI-Manager` (filter APKs by `3x-ui-manager` to pick the `standard` flavor).
 - **iOS** — unsigned `.ipa` for sideloading (AltStore / Sideloadly), attached to each release.
 
-Requires a panel running **3x-ui v3.3.0 or newer** (API-token auth).
+Requires a panel running **3x-ui v3.3.0 or newer** (API-token auth); tested through **v3.10.0** (see the compatibility note at the top).
 
 ---
 
@@ -89,10 +91,11 @@ The upstream project lives at [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui
 ### Xray config (⋮ menu)
 Structured editors over the panel's Xray config — each round-trips the **whole** config, preserving sibling and unknown keys. Field sets mirror the panel's own forms. (Needs panel **v3.3.0+**.)
 - **Outbounds** — list (add / edit / delete / reorder) + per-protocol forms (vless, vmess, trojan, shadowsocks, socks, http, freedom, blackhole, wireguard) with transport + TLS/REALITY; **import from a `vless://` link**.
-- **Routing** — rules (source / dest / inbound → outbound or balancer, reorderable) + balancers (strategy / selector / fallback) + routing strategy.
+- **Routing** — rules (source / dest / inbound → outbound or balancer, reorderable) + routing strategy + route tester.
+- **Balancers** — balancers (strategy / selector / fallback) + the Observatory probe settings they drive (own Save button).
 - **DNS** — enable, DNS-level options, servers (bare string or full object), FakeDNS pools.
 - **General / Logs** — log levels, routing strategy, outbound test URL, traffic-stats toggles.
-- **Xray config (raw)** — the full config as JSON, a fallback for anything the forms don't cover (Observatory, advanced xHTTP, hysteria, reverse, …).
+- **Xray config (raw)** — the full config as JSON, a fallback for anything the forms don't cover (advanced xHTTP, hysteria, reverse, …).
 
 ### Backup / restore (⋮ menu)
 - **Back up** the panel's whole database (settings, inbounds, clients **and** the Xray config) to a file via the system file picker, and **restore** the panel from one. Engine-agnostic — the panel saves SQLite as `x-ui.db` and PostgreSQL as `x-ui.dump`, and imports either back. Restore confirms first and restarts Xray (a brief connection drop). Works with an API token.
@@ -112,7 +115,7 @@ Structured editors over the panel's Xray config — each round-trips the **whole
 
 ## Authentication
 
-The app authenticates with an **API token** (Bearer) only, and is designed for panel **v3.4.x**. There is no login/password mode.
+The app authenticates with an **API token** (Bearer) only, and is designed for panel **v3.4.x and newer** (tested through **v3.10.0**). There is no login/password mode.
 
 > **Panel v3.3.x users:** the current app version is optimised for **v3.4.x**. For panels on **v3.3.x**, use the last compatible release — **v0.3.23**.
 

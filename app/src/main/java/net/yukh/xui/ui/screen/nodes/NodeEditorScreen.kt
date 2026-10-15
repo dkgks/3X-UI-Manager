@@ -59,6 +59,7 @@ fun NodeEditorScreen(
     onEnable: (Boolean) -> Unit,
     onAllowPrivate: (Boolean) -> Unit,
     onTlsVerifyMode: (String) -> Unit,
+    onPinnedCert: (String) -> Unit,
     onOutboundTag: (String) -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
@@ -193,6 +194,17 @@ fun NodeEditorScreen(
                 options = listOf("verify", "skip", "pin", "mtls"),
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (state.tlsVerifyMode == "pin") {
+                OutlinedTextField(
+                    value = state.pinnedCertSha256,
+                    onValueChange = onPinnedCert,
+                    label = { Text(tr("Certificate SHA-256 pin")) },
+                    singleLine = true,
+                    isError = state.pinnedCertSha256.isBlank(),
+                    supportingText = { Text(tr("SHA-256 of the node's certificate, hex or base64.")) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             if (state.tlsVerifyMode == "mtls") {
                 Text(
                     tr("Mutual TLS: the API token is optional. Register this panel's CA on the node (menu → Node mTLS)."),

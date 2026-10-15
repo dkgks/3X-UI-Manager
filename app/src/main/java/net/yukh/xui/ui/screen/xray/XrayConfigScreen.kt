@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.yukh.xui.i18n.LocalAppLanguage
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.ui.components.PanelFeatureUnsupported
 import net.yukh.xui.ui.components.ConfirmDialog
@@ -50,11 +51,12 @@ fun XrayConfigScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var confirmSave by remember { mutableStateOf(false) }
+    val lang = LocalAppLanguage.current
 
     LaunchedEffect(Unit) { vm.load() }
     LaunchedEffect(state.savedMessage) {
         state.savedMessage?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(tr(lang, it))
             vm.dismissSavedMessage()
         }
     }
@@ -120,7 +122,11 @@ fun XrayConfigScreen(
                 ) {
                     Text(
                         tr("Full Xray config — outbounds, routing, DNS, etc. Same as the ") +
-                            tr("panel's Xray Configuration page. Save, then restart Xray to apply."),
+                            if (state.appliesOnSave) {
+                                tr("panel's Xray Configuration page. The panel applies it on save — live where it can, restarting Xray only when a change needs it.")
+                            } else {
+                                tr("panel's Xray Configuration page. Save, then restart Xray to apply.")
+                            },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -149,8 +155,12 @@ fun XrayConfigScreen(
     if (confirmSave) {
         ConfirmDialog(
             title = tr("Save Xray config?"),
-            text = tr("This replaces the panel's Xray configuration. Restart Xray ") +
-                tr("afterwards to apply. A broken config can take Xray down."),
+            text = if (state.appliesOnSave) {
+                tr("This replaces the panel's Xray configuration and applies it right away. A broken config can take Xray down.")
+            } else {
+                tr("This replaces the panel's Xray configuration. Restart Xray ") +
+                    tr("afterwards to apply. A broken config can take Xray down.")
+            },
             confirmLabel = tr("Save"),
             onConfirm = vm::save,
             onDismiss = { confirmSave = false },

@@ -331,6 +331,19 @@ class PanelRepository @Inject constructor(
         return settings?.subscriptionUrl(host, client.subId)
     }
 
+    /** The client's JSON subscription URL when the panel serves one, else null. Behind a
+     *  user-set sub base only an explicit JSON URI is trusted: its path can't be guessed. */
+    suspend fun getJsonSubscriptionUrl(client: Client): String? {
+        if (client.subId.isBlank()) return null
+        val host = currentBaseUrl?.let { PanelSettings.hostOf(it) } ?: return null
+        val settings = cachedSettings ?: authedData { it.getAllSettings() }
+            .getOrNull()
+            ?.also { cachedSettings = it }
+            ?: return null
+        if (!currentSubBase.isNullOrBlank() && settings.subJsonURI.isBlank()) return null
+        return settings.jsonSubscriptionUrl(host, client.subId)
+    }
+
     /**
      * Best-effort customer's-eye subscription status from the sub server's
      * `?format=info` (panel v3.6.0+): the live snapshot a subscriber's own app
@@ -559,8 +572,9 @@ class PanelRepository @Inject constructor(
     suspend fun listOutboundSubs(): Result<List<OutboundSubscription>> =
         authedData { it.listOutboundSubs() }
 
-    suspend fun createOutboundSub(sub: OutboundSubscription): Result<Unit> =
-        authedAck {
+    /** Returns the created subscription (with its new id) when the panel echoes it. */
+    suspend fun createOutboundSub(sub: OutboundSubscription): Result<OutboundSubscription?> =
+        authedDataOrNull {
             it.createOutboundSub(
                 url = sub.url.trim(), remark = sub.remark.trim(), tagPrefix = sub.tagPrefix.trim(),
                 enabled = sub.enabled, updateInterval = sub.updateInterval, prepend = sub.prepend,

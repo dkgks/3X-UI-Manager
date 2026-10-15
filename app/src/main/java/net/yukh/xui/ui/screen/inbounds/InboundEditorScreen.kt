@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,11 +59,15 @@ import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import net.yukh.xui.data.api.dto.InboundCapabilities
 import net.yukh.xui.data.api.dto.InboundTemplates
 import net.yukh.xui.data.api.dto.VlessEncAuth
 import net.yukh.xui.data.json.asObject
 import net.yukh.xui.data.json.bool
+import net.yukh.xui.data.json.array
 import net.yukh.xui.data.json.child
+import net.yukh.xui.data.json.int
+import net.yukh.xui.data.json.parseCsv
 import net.yukh.xui.data.json.putString
 import net.yukh.xui.data.json.string
 import net.yukh.xui.data.json.strings
@@ -74,7 +79,6 @@ import net.yukh.xui.ui.format.formatDate
 private val keygenJson = Json { prettyPrint = true; isLenient = true }
 
 private val NETWORKS = listOf("tcp", "ws", "grpc", "httpupgrade", "xhttp", "kcp")
-private val SECURITIES = listOf("none", "tls", "reality")
 private val FINGERPRINTS = listOf("chrome", "firefox", "safari", "ios", "android", "edge", "random", "randomized")
 private val SNIFF_TARGETS = listOf("http", "tls", "quic", "fakedns")
 
@@ -187,7 +191,11 @@ fun InboundEditorScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            LabeledDropdown(tr("Protocol"), state.protocol, InboundTemplates.protocols(state.panel380), state.isNew, vm::setEditorProtocol)
+            LabeledDropdown(
+                tr("Protocol"), state.protocol,
+                InboundTemplates.protocols(state.panel380, state.panel3100), state.isNew, vm::setEditorProtocol,
+            )
+            ProtocolSettingsFields(state, vm)
 
             HorizontalDivider()
 
@@ -232,46 +240,64 @@ fun InboundEditorScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 HorizontalDivider()
-            } else {
+            }
+            if (InboundCapabilities.hasStream(state.protocol)) {
                 // ---- Transport ----
                 SectionTitle(tr("Transport"))
-                LabeledDropdown(tr("Network"), state.network, NETWORKS, true, vm::setNetwork)
-                when (state.network) {
-                    "ws" -> {
+                if (InboundCapabilities.hasSelectableNetwork(state.protocol)) {
+                    LabeledDropdown(tr("Network"), state.network, NETWORKS, state.network != "xdrive", vm::setNetwork)
+                }
+                when {
+                    state.protocol == "masque" -> {
+                        val ms = state.stream.child("masqueSettings")
+                        Field(tr("Path"), ms.string("path"), vm::setMasquePath, placeholder = InboundTemplates.MASQUE_DEFAULT_PATH)
+                    }
+                    state.network == "ws" -> {
                         val ws = state.stream.child("wsSettings")
                         Field(tr("Path"), ws.string("path"), vm::setWsPath)
                         Field(tr("Host"), ws.string("host"), vm::setWsHost)
                     }
-                    "httpupgrade" -> {
+                    state.network == "httpupgrade" -> {
                         val hu = state.stream.child("httpupgradeSettings")
                         Field(tr("Path"), hu.string("path"), vm::setHttpPath)
                         Field(tr("Host"), hu.string("host"), vm::setHttpHost)
                     }
-                    "grpc" -> {
+                    state.network == "grpc" -> {
                         val g = state.stream.child("grpcSettings")
                         Field(tr("Service name"), g.string("serviceName"), vm::setGrpcService)
                     }
+                    state.network == "xdrive" -> Text(
+                        tr("XDRIVE storage is edited in the stream settings JSON below. Its security stays None: Xray would read TLS here as the storage API's client TLS."),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 HorizontalDivider()
 
                 // ---- Security ----
-                SectionTitle(tr("Security"))
-                LabeledDropdown(tr("Security"), state.security, SECURITIES, true, vm::setSecurity)
-                when (state.security) {
-                    "tls" -> {
-                        val tls = state.stream.child("tlsSettings")
-                        Field(tr("SNI (server name)"), tls.string("serverName"), vm::setTlsServerName)
-                    }
-                    "reality" -> {
-                        val r = state.stream.child("realitySettings")
-                        val rs = r.child("settings")
-                        Field(tr("Dest (target)"), r.string("dest"), vm::setRealityDest)
-                        Field(tr("Server names (comma-separated)"), r.strings("serverNames").joinToString(", "), vm::setRealityServerNames)
-                        Field(tr("Short IDs (comma-separated)"), r.strings("shortIds").joinToString(", "), vm::setRealityShortIds)
-                        LabeledDropdown(tr("Fingerprint"), rs.string("fingerprint").ifBlank { "chrome" }, FINGERPRINTS, true, vm::setRealityFingerprint)
-                        Field(tr("Public key"), rs.string("publicKey"), vm::setRealityPublicKey)
-                        Field(tr("Private key"), r.string("privateKey"), vm::setRealityPrivateKey)
+                val securities = InboundCapabilities.securities(state.protocol, state.network)
+                if (securities.isNotEmpty()) {
+                    SectionTitle(tr("Security"))
+                    LabeledDropdown(tr("Security"), state.security, securities, securities.size > 1, vm::setSecurity)
+                    when (state.security) {
+                        "tls" -> {
+                            val tls = state.stream.child("tlsSettings")
+                            val cert = tls.array("certificates").firstOrNull()?.asObject() ?: JsonObject(emptyMap())
+                            Field(tr("SNI (server name)"), tls.string("serverName"), vm::setTlsServerName)
+                            Field(tr("Certificate file"), cert.string("certificateFile"), vm::setTlsCertFile)
+                            Field(tr("Key file"), cert.string("keyFile"), vm::setTlsKeyFile)
+                        }
+                        "reality" -> {
+                            val r = state.stream.child("realitySettings")
+                            val rs = r.child("settings")
+                            Field(tr("Dest (target)"), r.string("dest"), vm::setRealityDest)
+                            Field(tr("Server names (comma-separated)"), r.strings("serverNames").joinToString(", "), vm::setRealityServerNames)
+                            Field(tr("Short IDs (comma-separated)"), r.strings("shortIds").joinToString(", "), vm::setRealityShortIds)
+                            LabeledDropdown(tr("Fingerprint"), rs.string("fingerprint").ifBlank { "chrome" }, FINGERPRINTS, true, vm::setRealityFingerprint)
+                            Field(tr("Public key"), rs.string("publicKey"), vm::setRealityPublicKey)
+                            Field(tr("Private key"), r.string("privateKey"), vm::setRealityPrivateKey)
+                        }
                     }
                 }
 
@@ -306,7 +332,9 @@ fun InboundEditorScreen(
                 }
 
                 HorizontalDivider()
+            }
 
+            if (InboundCapabilities.hasSniffing(state.protocol)) {
                 // ---- Sniffing ----
                 SectionTitle(tr("Sniffing"))
                 SwitchRow(tr("Enabled"), state.sniffing.bool("enabled"), vm::setSniffEnabled)
@@ -322,7 +350,6 @@ fun InboundEditorScreen(
                 }
 
                 HorizontalDivider()
-
             }
 
             if (state.protocol == "vless") {
@@ -365,7 +392,7 @@ fun InboundEditorScreen(
         ConfirmDialog(
             title = if (state.isNew) tr("Create inbound?") else tr("Save changes?"),
             text = if (state.isNew) "Create this inbound on port ${state.port}?"
-            else tr("Apply changes to this inbound? Xray will restart."),
+            else tr("Apply changes to this inbound?"),
             confirmLabel = if (state.isNew) tr("Create") else tr("Save"),
             onConfirm = vm::saveEditor,
             onDismiss = { confirmSave = false },
@@ -438,14 +465,75 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
 }
 
 @Composable
-private fun Field(label: String, value: String, onChange: (String) -> Unit) {
+private fun Field(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String? = null,
+    numeric: Boolean = false,
+    isError: Boolean = false,
+) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
         label = { Text(label) },
+        placeholder = placeholder?.let { { Text(it) } },
         singleLine = true,
+        isError = isError,
+        keyboardOptions = if (numeric) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+/** Structured fields for the protocols whose settings JSON the panel form exposes as fields. */
+@Composable
+private fun ProtocolSettingsFields(state: InboundEditorState, vm: InboundsViewModel) {
+    val settings = state.settingsObject ?: return
+    when (state.protocol) {
+        "shadowsocks" -> {
+            val method = settings.string("method").ifBlank { InboundTemplates.SS_DEFAULT_METHOD }
+            LabeledDropdown(tr("Method"), method, InboundTemplates.SS_INBOUND_METHODS, true, vm::setSsMethod)
+            if (InboundTemplates.isSs2022(method)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = settings.string("password"),
+                        onValueChange = vm::setSsPassword,
+                        label = { Text(tr("Password")) },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = vm::regenerateSsPassword) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = tr("Regenerate"))
+                    }
+                }
+            }
+        }
+        "masque" -> {
+            // Local text keeps a half-typed separator from being parsed away while typing.
+            var pool by remember { mutableStateOf(settings.strings("address").joinToString(", ")) }
+            OutlinedTextField(
+                value = pool,
+                onValueChange = { pool = it; vm.setMasqueAddressPool(parseCsv(it)) },
+                label = { Text(tr("Address pool")) },
+                supportingText = { Text(tr("Tunnel addresses are leased from these prefixes — at most one IPv4 and one IPv6.")) },
+                isError = parseCsv(pool).isEmpty(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            val mtu = settings.int("mtu")
+            Field(
+                tr("MTU"), mtu?.toString().orEmpty(), vm::setMasqueMtu,
+                placeholder = "1280", numeric = true,
+                isError = mtu != null && mtu !in MASQUE_MTU_RANGE,
+            )
+            Text(
+                tr("MASQUE clients sign in with email and password. They get the connection from the JSON subscription: MASQUE has no share link."),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -13,7 +13,11 @@ import kotlinx.serialization.json.JsonObject
  * Inbound.UnmarshalJSON accepts them as either a JSON object or a
  * JSON-encoded string, and MarshalJSON emits them as objects — so round-trip
  * as objects and avoid string-escaping entirely. Unknown response-only fields
- * (up/down/tag/clientStats/…) are dropped by ignoreUnknownKeys.
+ * (up/down/clientStats/…) are dropped by ignoreUnknownKeys.
+ *
+ * tag/subSortIndex/excludeFromSub/trafficResetDay have no editor field but the
+ * panel's update overwrites them from the body, so an edit must send the loaded
+ * values back (an empty tag makes the panel regenerate a custom one).
  */
 @Serializable
 data class InboundModel(
@@ -26,6 +30,10 @@ data class InboundModel(
     val expiryTime: Long = 0,
     val total: Long = 0,
     val trafficReset: String = "never",
+    val trafficResetDay: Int = 1,
+    val tag: String = "",
+    val subSortIndex: Int = 1,
+    val excludeFromSub: Boolean = false,
     // Panel v3.7.0 (VLESS): opt this inbound out of automatic xtls-rprx-vision.
     val disableFlow: Boolean = false,
     val settings: JsonElement = JsonObject(emptyMap()),

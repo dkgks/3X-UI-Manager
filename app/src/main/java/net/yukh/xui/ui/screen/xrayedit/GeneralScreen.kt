@@ -37,6 +37,7 @@ import net.yukh.xui.data.json.put
 import net.yukh.xui.data.json.putBool
 import net.yukh.xui.data.json.putString
 import net.yukh.xui.data.json.string
+import net.yukh.xui.i18n.LocalAppLanguage
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.ui.components.PanelFeatureUnsupported
 import net.yukh.xui.ui.components.Field
@@ -54,7 +55,8 @@ fun GeneralScreen(onClose: () -> Unit, vm: GeneralViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.load() }
-    LaunchedEffect(state.savedMessage) { state.savedMessage?.let { snackbar.showSnackbar(it); vm.dismissSavedMessage() } }
+    val lang = LocalAppLanguage.current
+    LaunchedEffect(state.savedMessage) { state.savedMessage?.let { snackbar.showSnackbar(tr(lang, it)); vm.dismissSavedMessage() } }
     LaunchedEffect(state.error) { if (state.available) state.error?.let { snackbar.showSnackbar(it); vm.dismissError() } }
 
     Scaffold(
@@ -94,6 +96,15 @@ fun GeneralScreen(onClose: () -> Unit, vm: GeneralViewModel = hiltViewModel()) {
                         LabeledDropdown(tr("Routing strategy"), routing.string("domainStrategy").ifBlank { "AsIs" }, ROUTING_STRATEGY) {
                             vm.update(cfg.put("routing", routing.putString("domainStrategy", it)))
                         }
+                        // Panel 3.10: a blank script must be removed — Xray refuses to start on an empty path.
+                        Field(tr("Routing Script"), routing.string("script")) {
+                            vm.update(cfg.put("routing", if (it.isBlank()) routing.put("script", null) else routing.putString("script", it)))
+                        }
+                        Text(
+                            tr("Path to a .lua file defining HandleRoute, absolute or relative to the Xray bin folder. The script then picks every route and Xray ignores all routing rules, the panel's api rule included: send the api inbound to the api outbound or traffic stats and live client changes stop. Xray will not start if the file is missing or invalid."),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Field(tr("Outbound test URL"), state.testUrl) { vm.setTestUrl(it) }
 
                         SectionTitle(tr("Logs"))

@@ -20,3 +20,7 @@ fun panelVersionAtLeast(version: String, major: Int, minor: Int, patch: Int = 0)
 
 /** Panel v3.8.0 features the app offers only when the panel reports that version. */
 fun supportsPanel380(version: String): Boolean = panelVersionAtLeast(version, 3, 8, 0)
+
+/** Panel v3.3.1+ applies a saved Xray template itself (`xray/update` reconciles a
+ *  running core, live where it can), so the app must not ask for a restart. */
+fun panelAppliesXrayOnSave(version: String): Boolean = panelVersionAtLeast(version, 3, 3, 1)

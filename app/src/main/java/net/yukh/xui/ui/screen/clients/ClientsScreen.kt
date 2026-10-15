@@ -265,6 +265,7 @@ fun ClientsScreen(
             loading = state.linksLoading,
             error = state.linksError,
             subUrl = state.selectedSubUrl,
+            jsonSubUrl = state.selectedJsonSubUrl,
             subChecked = state.subUrlChecked,
             subInfo = state.selectedSubInfo,
             happLinkEnabled = state.happLinkEnabled,

@@ -65,6 +65,7 @@ import net.yukh.xui.data.api.dto.TestOutboundResult
 import net.yukh.xui.data.api.dto.outboundTag
 import net.yukh.xui.data.json.asObject
 import net.yukh.xui.data.parse.parseVlessLink
+import net.yukh.xui.i18n.LocalAppLanguage
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.ui.components.PanelFeatureUnsupported
 import net.yukh.xui.ui.components.ConfirmDialog
@@ -94,8 +95,9 @@ fun OutboundsScreen(
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) { vm.load() }
+    val lang = LocalAppLanguage.current
     LaunchedEffect(state.savedMessage) {
-        state.savedMessage?.let { snackbar.showSnackbar(it); vm.dismissSavedMessage() }
+        state.savedMessage?.let { snackbar.showSnackbar(tr(lang, it)); vm.dismissSavedMessage() }
     }
     LaunchedEffect(state.error) {
         if (state.available) state.error?.let { snackbar.showSnackbar(it); vm.dismissError() }
@@ -116,6 +118,7 @@ fun OutboundsScreen(
             onCancel = vm::closeEditor,
             onDelete = if (!editing.isNew) ({ confirmDelete = true }) else null,
             protocols = if (state.panel380) OUTBOUND_PROTOCOLS + "amneziawg" else OUTBOUND_PROTOCOLS,
+            panel3100 = state.panel3100,
         )
         if (confirmDelete) {
             ConfirmDialog(

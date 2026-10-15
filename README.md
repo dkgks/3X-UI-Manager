@@ -5,6 +5,10 @@
 
 用 REST API 管理 [3x-ui](https://github.com/MHSanaei/3x-ui) 面板的原生移动客户端 —— 仪表盘、入站、客户端（二维码分享）、节点、Xray 配置，手机上就能搞定。**支持多面板：保存多个面板，在同一个应用里切换。**
 
+> ✅ **兼容至 3x-ui 面板 v3.10.0。** 应用调用的是面板稳定的 REST API，所以面板发新版通常**不需要**等应用跟着更新（极少数例外会写在本应用的更新日志里）。面板 **3.10.0** 就是一例：创建 Shadowsocks 入站与 MASQUE 支持需要应用 **v0.15.1** 或更新版本。
+
+本仓库（`main` 分支）存放 **Android** 应用源码（Kotlin + Jetpack Compose），可直接在仓库根目录构建。
+
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![Platform: Android 7+](https://img.shields.io/badge/Android-7%2B-3DDC84?logo=android&logoColor=white) ![Made with Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose%20Material%203-4285F4)
 
 🇬🇧 [English](README.en.md) · 🇷🇺 [Русский](README.ru.md) · 📝 [上游更新日志](CHANGELOG.md) · 📖 [用户手册](docs/3X-UI-MANAGER.en.md)
@@ -28,7 +32,7 @@
 
 ## 汉化内容
 
-- 全部 **695 条**界面文案已翻译为简体中文（新增 `ZhStrings.kt` 语言表），覆盖仪表盘、入站、客户端、节点、Xray 配置编辑器、设置、提示与报错信息。
+- 全部 **745 条**界面文案已翻译为简体中文（新增 `ZhStrings.kt` 语言表），覆盖仪表盘、入站、客户端、节点、Xray 配置编辑器（含均衡器 / Observatory 探测设置）、设置、提示与报错信息。
 - 设置里的语言选择器新增 **中文** 一项；系统语言为中文时自动使用中文界面，其余情况保持英文。
 - 日期/流量等单位跟随本地化（如剩余天数显示为「天」）。
 - 汉化只涉及界面文案，不改动任何网络请求、面板 API 调用和数据处理逻辑。
@@ -63,10 +67,11 @@
 **Xray 配置编辑器**
 
 - 出站：列表增删改排序 + 各协议表单（vless、vmess、trojan、shadowsocks、socks、http、freedom、blackhole、wireguard），带传输层与 TLS/REALITY；支持从 `vless://` 链接导入。
-- 路由：规则（源/目标/入站 → 出站或 balancer，可排序）、balancer（策略/选择器/回退）、路由策略。
+- 路由：规则（源/目标/入站 → 出站或 balancer，可排序）+ 路由策略 + 路由测试器。
+- 均衡器（Balancers）：balancer（策略/选择器/回退）+ 它们驱动的 Observatory 探测设置（有独立保存按钮）。
 - DNS：开关、DNS 级选项、服务器（字符串或完整对象）、FakeDNS 池。
 - 常规 / 日志：日志级别、路由策略、出站测试 URL、流量统计开关。
-- 原始 Xray 配置：完整 JSON，表单覆盖不到的字段（Observatory、进阶 xHTTP、hysteria、reverse 等）的兜底入口。
+- 原始 Xray 配置：完整 JSON，表单覆盖不到的字段（进阶 xHTTP、hysteria、reverse 等）的兜底入口。
 - 所有编辑器都做整份配置回写，保留同级与未知字段。
 
 **其他**
@@ -78,7 +83,7 @@
 
 ## 使用前提
 
-- 面板需运行 **3x-ui v3.3.0 或更新版本**（API Token 认证）。上游当前版本针对 **v3.4.x** 优化；面板停留在 v3.3.x 的用户请用上游 v0.3.23。
+- 面板需运行 **3x-ui v3.3.0 或更新版本**（API Token 认证）；已测试到 **v3.10.0**（见顶部兼容性说明）。上游当前版本针对 **v3.4.x 及以上**优化；面板停留在 v3.3.x 的用户请用上游 v0.3.23。
 - 应用**仅支持 API Token（Bearer）登录**，没有账号密码模式。在面板 **设置 → 安全 → API Token** 里生成，粘进应用即可。
 - 一个 3x-ui Token 等价于**完整管理员权限**（没有只读或分权限的 Token），请像保管密码一样保管它。
 - Token 在设备上加密存储（EncryptedSharedPreferences，AES-256，密钥放在 Android Keystore）。

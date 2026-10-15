@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.yukh.xui.i18n.LocalAppLanguage
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.ui.components.Field
 import net.yukh.xui.ui.components.LabeledDropdown
@@ -53,7 +54,8 @@ fun GeodataScreen(onClose: () -> Unit, vm: GeodataViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.load() }
-    LaunchedEffect(state.savedMessage) { state.savedMessage?.let { snackbar.showSnackbar(it); vm.dismissMessage() } }
+    val lang = LocalAppLanguage.current
+    LaunchedEffect(state.savedMessage) { state.savedMessage?.let { snackbar.showSnackbar(tr(lang, it)); vm.dismissMessage() } }
     LaunchedEffect(state.error) { if (state.available) state.error?.let { snackbar.showSnackbar(it); vm.dismissMessage() } }
 
     Scaffold(

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
@@ -65,6 +66,7 @@ import net.yukh.xui.data.json.putStrings
 import net.yukh.xui.data.json.string
 import net.yukh.xui.data.json.strings
 import net.yukh.xui.data.json.parseCsv
+import net.yukh.xui.i18n.LocalAppLanguage
 import net.yukh.xui.i18n.tr
 import net.yukh.xui.ui.components.PanelFeatureUnsupported
 import net.yukh.xui.ui.components.ConfirmDialog
@@ -76,12 +78,11 @@ import net.yukh.xui.ui.components.SectionTitle
 
 private val ROUTING_DOMAIN_STRATEGY = listOf("AsIs", "IPIfNonMatch", "IPOnDemand")
 private val RULE_NETWORK = listOf("", "tcp", "udp", "tcp,udp")
-private val BAL_STRATEGY = listOf("random", "roundRobin", "leastLoad", "leastPing")
 
 private fun JsonObject.tagList(arrayKey: String): List<String> =
     child("routing").array(arrayKey).map { it.asObject().string("tag") }.filter { it.isNotBlank() }
 
-private fun JsonObject.outboundTags(): List<String> =
+internal fun JsonObject.outboundTags(): List<String> =
     array("outbounds").map { it.asObject().string("tag") }.filter { it.isNotBlank() }
 
 /** A rule is enabled unless it carries `enabled: false` (panel v3.4.x strips
@@ -112,7 +113,8 @@ fun RoutingScreen(onClose: () -> Unit, vm: RoutingViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.load() }
-    LaunchedEffect(state.savedMessage) { state.savedMessage?.let { snackbar.showSnackbar(it); vm.dismissSavedMessage() } }
+    val lang = LocalAppLanguage.current
+    LaunchedEffect(state.savedMessage) { state.savedMessage?.let { snackbar.showSnackbar(tr(lang, it)); vm.dismissSavedMessage() } }
     LaunchedEffect(state.error) { if (state.available) state.error?.let { snackbar.showSnackbar(it); vm.dismissError() } }
 
     val cfg = state.config
@@ -132,23 +134,6 @@ fun RoutingScreen(onClose: () -> Unit, vm: RoutingViewModel = hiltViewModel()) {
                 if (rule.isNew) arr.add(clean) else arr[rule.index] = clean
                 vm.update(cfg.put("routing", routing.putArray("rules", arr)))
                 vm.closeRule()
-                vm.save()
-            },
-        )
-        return
-    }
-    val bal = state.editingBalancer
-    if (bal != null) {
-        androidx.activity.compose.BackHandler(onBack = vm::closeBalancer)
-        BalancerEditor(
-            draft = bal.draft, isNew = bal.isNew, outboundTags = cfg.outboundTags() + state.subscriptionOutboundTags,
-            onChange = vm::updateBalDraft, onCancel = vm::closeBalancer,
-            onDone = {
-                val routing = cfg.child("routing")
-                val arr = routing.array("balancers").toMutableList()
-                if (bal.isNew) arr.add(bal.draft) else arr[bal.index] = bal.draft
-                vm.update(cfg.put("routing", routing.putArray("balancers", arr)))
-                vm.closeBalancer()
                 vm.save()
             },
         )
@@ -267,20 +252,29 @@ private fun RouteTestDialog(
 private fun RoutingBody(cfg: JsonObject, inboundOptions: List<Pair<String, String>>, vm: RoutingViewModel) {
     val routing = cfg.child("routing")
     val rules = routing.array("rules")
-    val balancers = routing.array("balancers")
     var pendingRule by remember { mutableStateOf<Int?>(null) }
-    var pendingBal by remember { mutableStateOf<Int?>(null) }
     var showExport by remember { mutableStateOf(false) }
     var showImport by remember { mutableStateOf(false) }
     var showRouteTest by remember { mutableStateOf(false) }
 
     fun setRules(items: List<kotlinx.serialization.json.JsonElement>) = vm.update(cfg.put("routing", routing.putArray("rules", items)))
-    fun setBalancers(items: List<kotlinx.serialization.json.JsonElement>) = vm.update(cfg.put("routing", routing.putArray("balancers", items)))
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        if (routing.string("script").isNotBlank()) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    tr("A routing script is set under General / Logs, so Xray ignores these rules."),
+                    modifier = Modifier.padding(12.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+        }
         LabeledDropdown(tr("Routing strategy"), routing.string("domainStrategy").ifBlank { "AsIs" }, ROUTING_DOMAIN_STRATEGY) {
             vm.update(cfg.put("routing", routing.putString("domainStrategy", it)))
         }
@@ -348,34 +342,12 @@ private fun RoutingBody(cfg: JsonObject, inboundOptions: List<Pair<String, Strin
         OutlinedButton(onClick = { vm.openRule(-1, JsonObject(emptyMap()).putString("type", "field"), isNew = true) }) {
             Icon(Icons.Filled.Add, contentDescription = null); Text("  " + tr("Add rule"))
         }
-
-        SectionTitle(tr("Balancers"))
-        balancers.forEachIndexed { i, el ->
-            val b = el.asObject()
-            Card(modifier = Modifier.fillMaxWidth().clickable { vm.openBalancer(i, b, isNew = false) }) {
-                Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(b.string("tag").ifBlank { "(no tag)" }, style = MaterialTheme.typography.titleSmall)
-                        Text(b.strings("selector").joinToString(", "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    IconButton(onClick = { pendingBal = i }) { Icon(Icons.Outlined.Delete, contentDescription = tr("Delete")) }
-                }
-            }
-        }
-        OutlinedButton(onClick = { vm.openBalancer(-1, JsonObject(emptyMap()), isNew = true) }) {
-            Icon(Icons.Filled.Add, contentDescription = null); Text("  " + tr("Add balancer"))
-        }
     }
 
     pendingRule?.let { idx ->
         ConfirmDialog(tr("Delete rule?"), "#${idx + 1}", tr("Delete"), destructive = true,
             onConfirm = { pendingRule = null; val a = rules.toMutableList(); if (idx in a.indices) a.removeAt(idx); setRules(a) },
             onDismiss = { pendingRule = null })
-    }
-    pendingBal?.let { idx ->
-        ConfirmDialog(tr("Delete balancer?"), balancers.getOrNull(idx)?.asObject()?.string("tag").orEmpty(), tr("Delete"), destructive = true,
-            onConfirm = { pendingBal = null; val a = balancers.toMutableList(); if (idx in a.indices) a.removeAt(idx); setBalancers(a) },
-            onDismiss = { pendingBal = null })
     }
 
     if (showExport) {
@@ -443,37 +415,6 @@ private fun RuleEditor(
             Field(tr("Protocol (comma-separated)"), draft.strings("protocol").joinToString(", ")) { setArr("protocol", it) }
             Field(tr("User (comma-separated)"), draft.strings("user").joinToString(", ")) { setArr("user", it) }
             Field(tr("VLESS route"), draft.string("vlessRoute")) { setStr("vlessRoute", it) }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BalancerEditor(
-    draft: JsonObject, isNew: Boolean, outboundTags: List<String>,
-    onChange: (JsonObject) -> Unit, onCancel: () -> Unit, onDone: () -> Unit,
-) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (isNew) tr("New balancer") else tr("Edit balancer")) },
-                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Close")) } },
-                actions = { TextButton(onClick = onDone) { Text(tr("Save")) } },
-            )
-        },
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Field(tr("Tag"), draft.string("tag")) { onChange(draft.putString("tag", it)) }
-            val strategy = draft.child("strategy").string("type").ifBlank { "random" }
-            LabeledDropdown(tr("Strategy"), strategy, BAL_STRATEGY) {
-                onChange(if (it == "random") draft.put("strategy", null) else draft.put("strategy", JsonObject(emptyMap()).putString("type", it)))
-            }
-            Field(tr("Selector (comma-separated)"), draft.strings("selector").joinToString(", ")) {
-                val l = parseCsv(it); onChange(draft.putStrings("selector", l))
-            }
-            LabeledDropdown(tr("Fallback"), draft.string("fallbackTag"), listOf("") + outboundTags) {
-                onChange(if (it.isBlank()) draft.put("fallbackTag", null) else draft.putString("fallbackTag", it))
-            }
         }
     }
 }

@@ -20,6 +20,8 @@ import net.yukh.xui.data.json.asObject
 import net.yukh.xui.data.json.putArray
 import net.yukh.xui.data.repo.PanelRepository
 import net.yukh.xui.data.repo.isUnsupportedByPanel
+import net.yukh.xui.data.repo.panelVersionAtLeast
+import net.yukh.xui.ui.screen.xrayedit.xraySaveMessage
 
 private val prettyJson = Json { prettyPrint = true; isLenient = true }
 
@@ -51,6 +53,7 @@ data class OutboundsUiState(
     val subTesting: Set<Int> = emptySet(),
     /** Panel v3.8.0+: AmneziaWG can be chosen as an outbound protocol. */
     val panel380: Boolean = false,
+    val panel3100: Boolean = false,
 )
 
 @HiltViewModel
@@ -69,7 +72,8 @@ class OutboundsViewModel @Inject constructor(
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             val panel380 = repo.isPanel380()
-            _state.update { it.copy(panel380 = panel380) }
+            val panel3100 = panelVersionAtLeast(repo.panelVersion(), 3, 10, 0)
+            _state.update { it.copy(panel380 = panel380, panel3100 = panel3100) }
             repo.getXraySetting()
                 .onSuccess { env ->
                     configObj = env.xraySetting.asObject()
@@ -177,6 +181,7 @@ class OutboundsViewModel @Inject constructor(
         val list = st.outbounds.toMutableList()
         if (ed.isNew) list.add(ed.draft) else list[ed.index] = ed.draft
         _state.update { it.copy(outbounds = list, dirty = true, editing = null, editorError = null) }
+        save()
     }
 
     fun deleteAt(index: Int) = _state.update {
@@ -212,9 +217,10 @@ class OutboundsViewModel @Inject constructor(
         viewModelScope.launch {
             repo.updateXraySetting(minified, testUrl.trim())
                 .onSuccess {
+                    val msg = repo.xraySaveMessage()
                     configObj = updated
                     _state.update {
-                        it.copy(saving = false, dirty = false, savedMessage = "Outbounds saved — restart Xray to apply")
+                        it.copy(saving = false, dirty = false, savedMessage = msg)
                     }
                 }
                 .onFailure { e ->

@@ -3,6 +3,10 @@ default:
   tags: [docker]
   interruptible: true
   before_script:
+    # Home runners have no IPv6 route; mirrors answer AAAA first, so force IPv4 for apt, curl and sdkmanager.
+    - echo 'precedence ::ffff:0:0/96 100' >> /etc/gai.conf
+    - echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
+    - export SDKMANAGER_OPTS="-Djava.net.preferIPv4Stack=true"
     - export ANDROID_HOME="$CI_PROJECT_DIR/.android-sdk"
     - export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
     - |
@@ -10,7 +14,7 @@ default:
         echo ">>> Installing Android command-line tools"
         apt-get update -qq && apt-get install -y --no-install-recommends curl unzip > /dev/null
         mkdir -p "$ANDROID_HOME/cmdline-tools"
-        curl -sSL -o /tmp/cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        curl -4 -sSL --retry 5 --retry-delay 10 --retry-all-errors -o /tmp/cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
         unzip -q /tmp/cmdline.zip -d "$ANDROID_HOME/cmdline-tools"
         mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
         rm /tmp/cmdline.zip
@@ -31,16 +35,19 @@ stages:
   - build
   - publish
 
+# The SDK gets a fixed key: keyed on app/build.gradle.kts it was re-downloaded on every
+# version bump (versionCode lives there), and dl.google.com is flaky from the home runners.
 cache:
-  key:
-    files:
-      - gradle/libs.versions.toml
-      - app/build.gradle.kts
-  paths:
-    - .gradle-cache/caches/
-    - .gradle-cache/wrapper/
-    - .android-sdk/
-    - .gradle/
+  - key: android-sdk-35
+    paths:
+      - .android-sdk/
+  - key:
+      files:
+        - gradle/libs.versions.toml
+    paths:
+      - .gradle-cache/caches/
+      - .gradle-cache/wrapper/
+      - .gradle/
 
 workflow:
   rules:

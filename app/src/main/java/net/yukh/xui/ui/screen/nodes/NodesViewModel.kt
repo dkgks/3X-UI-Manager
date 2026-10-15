@@ -43,6 +43,8 @@ data class NodesUiState(
 
 data class NodeEditorState(
     val isNew: Boolean,
+    /** The node as listed; an edit starts from it so unshown fields (inbound sync) survive. */
+    val source: Node? = null,
     val id: Int = 0,
     val name: String = "",
     val remark: String = "",
@@ -54,6 +56,8 @@ data class NodeEditorState(
     val enable: Boolean = true,
     val allowPrivateAddress: Boolean = false,
     val tlsVerifyMode: String = "verify",
+    /** SHA-256 of the node's certificate (hex or base64), required in "pin" mode. */
+    val pinnedCertSha256: String = "",
     val outboundTag: String = "",
     val availableOutboundTags: List<String> = emptyList(),
     // Inbounds currently hosted on this node — the panel blocks deletion while > 0.
@@ -65,8 +69,28 @@ data class NodeEditorState(
         get() = !saving && name.isNotBlank() && address.isNotBlank() &&
             (port.toIntOrNull() ?: 0) in 1..65535 &&
             // An existing node keeps its stored token when the field is left empty.
-            (apiToken.isNotBlank() || tlsVerifyMode == "mtls" || !isNew)
+            (apiToken.isNotBlank() || tlsVerifyMode == "mtls" || !isNew) &&
+            (tlsVerifyMode != "pin" || pinnedCertSha256.isNotBlank())
 }
+
+/** The add/update body for this form, built on the listed node so the fields the
+ *  panel's update overwrites but the form doesn't show are sent back unchanged. */
+internal fun NodeEditorState.toNodeModel(): NodeModel =
+    (source?.toModel() ?: NodeModel()).copy(
+        id = id,
+        name = name.trim(),
+        remark = remark.trim(),
+        scheme = scheme,
+        address = address.trim(),
+        port = port.toIntOrNull() ?: 443,
+        basePath = basePath.trim().ifBlank { "/" },
+        apiToken = apiToken.trim().ifBlank { null },
+        enable = enable,
+        allowPrivateAddress = allowPrivateAddress,
+        tlsVerifyMode = tlsVerifyMode,
+        pinnedCertSha256 = pinnedCertSha256.trim(),
+        outboundTag = outboundTag.trim(),
+    )
 
 @HiltViewModel
 class NodesViewModel @Inject constructor(
@@ -170,6 +194,7 @@ class NodesViewModel @Inject constructor(
             it.copy(
                 editor = NodeEditorState(
                     isNew = false,
+                    source = n,
                     id = n.id,
                     name = n.name,
                     remark = n.remark,
@@ -181,6 +206,7 @@ class NodesViewModel @Inject constructor(
                     enable = n.enable,
                     allowPrivateAddress = n.allowPrivateAddress,
                     tlsVerifyMode = n.tlsVerifyMode,
+                    pinnedCertSha256 = n.pinnedCertSha256,
                     outboundTag = n.outboundTag,
                     inboundCount = n.inboundCount,
                 ),
@@ -220,24 +246,12 @@ class NodesViewModel @Inject constructor(
     fun setAllowPrivate(v: Boolean) = edit { it.copy(allowPrivateAddress = v) }
     fun setTlsVerifyMode(v: String) = edit { it.copy(tlsVerifyMode = v) }
     fun setOutboundTag(v: String) = edit { it.copy(outboundTag = v) }
+    fun setPinnedCert(v: String) = edit { it.copy(pinnedCertSha256 = v) }
 
     fun saveEditor() {
         val e = _state.value.editor ?: return
         if (!e.canSave) return
-        val model = NodeModel(
-            id = e.id,
-            name = e.name.trim(),
-            remark = e.remark.trim(),
-            scheme = e.scheme,
-            address = e.address.trim(),
-            port = e.port.toIntOrNull() ?: 443,
-            basePath = e.basePath.trim().ifBlank { "/" },
-            apiToken = e.apiToken.trim().ifBlank { null },
-            enable = e.enable,
-            allowPrivateAddress = e.allowPrivateAddress,
-            tlsVerifyMode = e.tlsVerifyMode,
-            outboundTag = e.outboundTag.trim(),
-        )
+        val model = e.toNodeModel()
         _state.update { s -> s.editor?.let { s.copy(editor = it.copy(saving = true, error = null)) } ?: s }
         viewModelScope.launch {
             val result = if (e.isNew) repo.addNode(model) else repo.updateNode(e.id, model)

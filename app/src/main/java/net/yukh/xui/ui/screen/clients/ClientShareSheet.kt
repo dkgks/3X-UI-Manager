@@ -68,6 +68,7 @@ fun ClientShareSheet(
     loading: Boolean,
     error: String?,
     subUrl: String?,
+    jsonSubUrl: String?,
     subChecked: Boolean,
     subInfo: SubInfo?,
     happLinkEnabled: Boolean?,
@@ -118,6 +119,7 @@ fun ClientShareSheet(
                     subUrl != null -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         QrAndLink(content = subUrl, context = context)
                         if (subInfo != null) SubStatusRow(subInfo)
+                        if (jsonSubUrl != null) JsonSubBlock(jsonSubUrl, context)
                         if (happLinkEnabled != null) {
                             HappLinkBlock(
                                 enabled = happLinkEnabled,
@@ -344,6 +346,15 @@ private fun LinkRow(content: String, context: Context) {
 
 @Composable
 private fun QrCard(content: String) {
+    // Post-quantum keys fit a QR only at a density phones can't scan; the panel hides it too.
+    if (isPostQuantumLink(content)) {
+        Text(
+            tr("This link carries post-quantum keys and is too dense for a QR code — copy or share it instead."),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
     // Data past the QR capacity makes the encoder throw; say so instead of crashing the sheet.
     val bitmap = remember(content) { runCatching { qrImageBitmap(content, 768) }.getOrNull() }
     if (bitmap == null) {
@@ -366,6 +377,21 @@ private fun QrCard(content: String) {
             contentDescription = tr("QR code"),
             modifier = Modifier.size(220.dp),
         )
+    }
+}
+
+/** The JSON subscription (Xray JSON configs); MASQUE is only offered there (panel 3.10.0). */
+@Composable
+private fun JsonSubBlock(url: String, context: Context) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        HorizontalDivider()
+        Text(tr("JSON subscription"), style = MaterialTheme.typography.titleSmall)
+        Text(
+            tr("Xray JSON configs. MASQUE connections are only in this one."),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        QrAndLink(content = url, context = context)
     }
 }
 
