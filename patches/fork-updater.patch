@@ -1,5 +1,5 @@
 diff --git a/app/src/main/java/net/yukh/xui/update/UpdateChecker.kt b/app/src/main/java/net/yukh/xui/update/UpdateChecker.kt
-index bbe0747..87332d5 100644
+index 7b2f515..7ad3091 100644
 --- a/app/src/main/java/net/yukh/xui/update/UpdateChecker.kt
 +++ b/app/src/main/java/net/yukh/xui/update/UpdateChecker.kt
 @@ -9,7 +9,8 @@ import org.json.JSONObject
@@ -10,9 +10,9 @@ index bbe0747..87332d5 100644
 +    val version: String,   // e.g. "0.5.5" — the tag minus the "localized-"/"v" prefixes
 +    val tag: String,       // the raw release tag, e.g. "localized-v0.14.3"
      val notes: String,     // release description (markdown)
+     val changes: List<VersionNotes> = emptyList(),  // changelog since the installed version, newest first
      val apkUrl: String?,   // download URL of the .apk asset, or null if missing
-     val pageUrl: String,   // release web page (fallback link)
-@@ -37,8 +38,16 @@ enum class UpdateChannel {
+@@ -38,8 +39,16 @@ enum class UpdateChannel {
   * work anonymously — no token in the app.
   */
  object UpdateChecker {
@@ -31,14 +31,20 @@ index bbe0747..87332d5 100644
      private const val GH_API = "https://api.github.com/repos/$GH_REPO"
      private const val GH_RAW = "https://raw.githubusercontent.com/$GH_REPO"
      private const val GH_RELEASES = "https://github.com/$GH_REPO/releases"
-@@ -67,13 +76,14 @@ object UpdateChecker {
-      * `## [version]` block. Returns null on any failure → caller keeps the
-      * release body as a fallback.
+@@ -61,19 +70,19 @@ object UpdateChecker {
+     }
+ 
+     /**
+-     * The whole changelog in the app's language at tag v[version] — the release body
++     * The whole changelog in the app's language at [tag] — the release body
+      * is English-only, but we keep a Russian changelog too, so the "what's new"
+      * shown in the dialog can match the UI language. Read from the latest tag, it
+      * holds every version the user may have skipped. Returns null on any failure →
+      * caller keeps the release body as a fallback.
       */
--    suspend fun localizedNotes(version: String, russian: Boolean, channel: UpdateChannel): String? =
-+    suspend fun localizedNotes(tag: String, russian: Boolean, channel: UpdateChannel): String? =
+-    suspend fun localizedChangelog(version: String, russian: Boolean, channel: UpdateChannel): String? =
++    suspend fun localizedChangelog(tag: String, russian: Boolean, channel: UpdateChannel): String? =
          withContext(Dispatchers.IO) {
-+            val version = tagToVersion(tag)
              val file = if (russian) "CHANGELOG.ru.md" else "CHANGELOG.md"
              val url = if (channel == UpdateChannel.TESTING) {
 -                "$GL_FILES/$file/raw?ref=v$version"
@@ -49,7 +55,7 @@ index bbe0747..87332d5 100644
              }
              val req = Request.Builder().url(url).build()
              runCatching {
-@@ -130,7 +140,8 @@ object UpdateChecker {
+@@ -118,7 +127,8 @@ object UpdateChecker {
              client.newCall(req).execute().use { resp ->
                  if (!resp.isSuccessful) return@use null
                  val rel = JSONObject(resp.body?.string() ?: return@use null)
@@ -59,7 +65,7 @@ index bbe0747..87332d5 100644
                  if (version.isBlank()) return@use null
                  val assets = rel.optJSONArray("assets")
                  var apkUrl: String? = null
-@@ -146,6 +157,7 @@ object UpdateChecker {
+@@ -134,6 +144,7 @@ object UpdateChecker {
                  }
                  AppRelease(
                      version = version,
@@ -67,7 +73,7 @@ index bbe0747..87332d5 100644
                      notes = rel.optString("body"),
                      apkUrl = apkUrl,
                      pageUrl = rel.optString("html_url").ifBlank { GH_RELEASES },
-@@ -163,7 +175,8 @@ object UpdateChecker {
+@@ -151,7 +162,8 @@ object UpdateChecker {
                  val arr = JSONArray(resp.body?.string() ?: return@use null)
                  if (arr.length() == 0) return@use null
                  val rel = arr.getJSONObject(0)
@@ -77,7 +83,7 @@ index bbe0747..87332d5 100644
                  if (version.isBlank()) return@use null
                  val links = rel.optJSONObject("assets")?.optJSONArray("links")
                  var apkUrl: String? = null
-@@ -175,6 +188,7 @@ object UpdateChecker {
+@@ -163,6 +175,7 @@ object UpdateChecker {
                  }
                  AppRelease(
                      version = version,
@@ -86,15 +92,15 @@ index bbe0747..87332d5 100644
                      apkUrl = apkUrl,
                      pageUrl = rel.optJSONObject("_links")?.optString("self").orEmpty()
 diff --git a/app/src/main/java/net/yukh/xui/update/UpdateViewModel.kt b/app/src/main/java/net/yukh/xui/update/UpdateViewModel.kt
-index 3f79d79..33484ac 100644
+index e0ae3a7..53cc2dc 100644
 --- a/app/src/main/java/net/yukh/xui/update/UpdateViewModel.kt
 +++ b/app/src/main/java/net/yukh/xui/update/UpdateViewModel.kt
 @@ -62,7 +62,7 @@ class UpdateViewModel @Inject constructor(
-      *  and un-wrap its 80-col hard breaks so the dialog doesn't break mid-sentence. */
+      *  every version since the installed one — and un-wrap their 80-col hard breaks. */
      private suspend fun localized(release: AppRelease): AppRelease {
          val russian = resolveLanguage(settings.getLanguage(), java.util.Locale.getDefault().language) == LANG_RU
--        val notes = UpdateChecker.localizedNotes(release.version, russian, channel()) ?: release.notes
-+        val notes = UpdateChecker.localizedNotes(release.tag, russian, channel()) ?: release.notes
-         return release.copy(notes = UpdateChecker.reflowNotes(notes))
-     }
- 
+-        val changelog = UpdateChecker.localizedChangelog(release.version, russian, channel())
++        val changelog = UpdateChecker.localizedChangelog(release.tag, russian, channel())
+         val changes = changelog?.let {
+             ChangelogNotes.select(ChangelogNotes.parse(it), currentVersion(), release.version)
+         }.orEmpty().map { it.copy(body = UpdateChecker.reflowNotes(it.body)) }
