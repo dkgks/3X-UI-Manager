@@ -175,9 +175,19 @@ jobs:
           APK="$(ls app/build/outputs/apk/standard/debug/*.apk | head -1)"
           UP_TAG="${{ steps.uprel.outputs.tag }}"
           V="${UP_TAG#v}"
+          # 发布说明：开头就是「签名与官方版不同、需先卸载」的提醒 —— 覆盖安装失败
+          # （签名冲突）是用户唯一踩得到、又最难自查的坑。
+          {
+            printf '## ⚠️ 安装前必读：本包签名与官方版 / F-Droid 版不同\n\n'
+            printf '手机上原来装的是**上游官方版**、**F-Droid 版**或早期的汉化测试包时，覆盖安装会失败（提示签名不一致 / 应用未安装）—— Android 只允许**同签名**的包互相覆盖。请**先卸载旧版**，再安装本包。\n\n'
+            printf '> 卸载会清空应用内保存的面板列表和 API Token，卸载前请先记下（Token 可在面板里重新生成）。\n\n'
+            printf '装过本仓库任意一版之后，后续升级都能直接覆盖安装：每次构建都会校验签名指纹，不一致就直接失败、不会发布半成品。\n\n'
+            printf '%s\n\n' '---'
+            printf '基于上游 **%s** 构建：应用简体中文汉化补丁，并把应用内「检查更新」指向本仓库。Debug 自动签名，可直接安装。上游更新日志见 [CHANGELOG](https://github.com/yukh975/3X-UI-Manager/blob/%s/CHANGELOG.md)。\n' "$UP_TAG" "$UP_TAG"
+          } > "$RUNNER_TEMP/release-notes.md"
           gh release create "$LOCAL_TAG" "$APK" \
             --repo "$GITHUB_REPOSITORY" \
             --target localized \
             --title "本地化版 $V（含简体中文）" \
-            --notes "基于上游 **$UP_TAG** 构建：应用简体中文汉化补丁，并把应用内「检查更新」指向本仓库。Debug 自动签名，可直接安装。上游更新日志见 [CHANGELOG](https://github.com/yukh975/3X-UI-Manager/blob/$UP_TAG/CHANGELOG.md)。"
+            --notes-file "$RUNNER_TEMP/release-notes.md"
           echo "Published $LOCAL_TAG"
