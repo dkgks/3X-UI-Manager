@@ -1,5 +1,11 @@
 # 3X-UI Manager · 简体中文版
 
+> ⛔ **本项目已停止维护（2026-10-18）。** 上游 [yukh975/3X-UI-Manager](https://github.com/yukh975/3X-UI-Manager) 从 **v0.15.4** 起已内置简体中文界面和中文用户手册，汉化不再需要单独的 fork。
+>
+> 请改用官方版：**[下载 v0.15.4](https://github.com/yukh975/3X-UI-Manager/releases/latest)**。
+>
+> ⚠️ 官方包是 release 签名，与本仓库的 debug 签名不同，**覆盖安装会失败**：请先记下应用内的面板地址和 API Token，卸载本版后再安装官方版。应用内「检查更新」也不会再收到本仓库的新版本（自动构建已停用）。
+
 > 这是 [yukh975/3X-UI-Manager](https://github.com/yukh975/3X-UI-Manager) 的**非官方汉化 fork**，由 [@dkgks](https://github.com/dkgks) 维护。
 > 在 3x-ui 面板的原生 Android 客户端基础上补齐简体中文界面，并自动跟随上游版本发布。
 

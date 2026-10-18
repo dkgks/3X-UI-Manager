@@ -1,5 +1,11 @@
 # 3X-UI Manager
 
+> ⛔ **This Chinese-localization fork is retired (2026-10-18).** Upstream [yukh975/3X-UI-Manager](https://github.com/yukh975/3X-UI-Manager) ships a built-in Simplified Chinese UI and a Chinese user manual since **v0.15.4** — a separate fork is no longer needed.
+>
+> Use the official build instead: **[download v0.15.4](https://github.com/yukh975/3X-UI-Manager/releases/latest)**.
+>
+> ⚠️ The official APK is release-signed, this fork's builds are debug-signed, so installing over it **fails**: note the panel address and API token inside the app, uninstall this build, then install the official one. The in-app update check will not offer new builds from this repo either (the auto-publish workflow is disabled).
+
 Native mobile clients for managing [3x-ui](https://github.com/MHSanaei/3x-ui) panels over the REST API — dashboard, inbounds, clients (with QR sharing), nodes, and the Xray config, on the go. **Multi-instance: connect to several panels and switch between them from one app.**
 
 > ✅ **Compatible with 3x-ui panels up to v3.10.0.** The app speaks the panel's stable REST API, so a new panel release does **not** require a new app version — no need to wait for an app update when the panel bumps (the rare exceptions are noted in this app's release notes). Panel **3.10.0** is one: creating Shadowsocks inbounds and MASQUE support need app **v0.15.1** or newer.
